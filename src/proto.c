@@ -39,9 +39,6 @@
 #include "tlv.h"
 #include "serial.h"
 
-#if OTRL_DEBUGGING
-extern const char *OTRL_DEBUGGING_DEBUGSTR;
-#endif
 
 /* For now, we need to know the API version the client is using so that
  * we don't use any UI callbacks it hasn't set. */
@@ -79,12 +76,6 @@ gcry_error_t otrl_init(unsigned int ver_major, unsigned int ver_minor,
 
     /* Initialize the SM module */
     otrl_sm_init();
-
-#if OTRL_DEBUGGING
-    /* Inform the user that debugging is available */
-    fprintf(stderr, "\nlibotr debugging is available.  Type %s in a message\n"
-	    "  to see debug info.\n\n", OTRL_DEBUGGING_DEBUGSTR);
-#endif
 
     return gcry_error(GPG_ERR_NO_ERROR);
 }

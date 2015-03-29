@@ -36,16 +36,6 @@
 #include "sm.h"
 #include "instag.h"
 
-#if OTRL_DEBUGGING
-#include <stdio.h>
-
-/* If OTRL_DEBUGGING is on, and the user types this string, the current
- * context and its siblings will be dumped to stderr. */
-const char *OTRL_DEBUGGING_DEBUGSTR = "?OTR!";
-
-void otrl_context_all_dump(FILE *f, OtrlUserState us);
-void otrl_context_siblings_dump(FILE *f, const ConnContext *context);
-#endif
 
 /* The API version */
 extern unsigned int otrl_api_version;
@@ -261,30 +251,6 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 	goto fragment;
     }
 
-#if OTRL_DEBUGGING
-    /* If the user typed the magic debug string, dump this context and
-     * its siblings. */
-    {
-	const char *debugtag = strstr(original_msg, OTRL_DEBUGGING_DEBUGSTR);
-
-	if (debugtag) {
-	    const char *debugargs =
-		debugtag + strlen(OTRL_DEBUGGING_DEBUGSTR);
-	    if (debugargs[0] == '!') { /* typed ?OTR!! */
-		otrl_context_all_dump(stderr, us);
-	    } else { /* typed ?OTR! without extra command chars */
-		otrl_context_siblings_dump(stderr, context);
-	    }
-
-	    /* Don't actually send the message */
-	    *messagep = strdup("");
-	    if (!(*messagep)) {
-		err = gcry_error(GPG_ERR_ENOMEM);
-	    }
-	    goto fragment;
-	}
-    }
-#endif
 
     /* If this is an OTR Query message, don't encrypt it. */
     if (otrl_proto_message_type(original_msg) == OTRL_MSGTYPE_QUERY) {
