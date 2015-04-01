@@ -31,37 +31,9 @@
 #include "sm.h"
 #include "serial.h"
 
-#if OTRL_DEBUGGING
-
-/* Dump the contents of an SMState to the FILE *f. */
-void otrl_sm_dump(FILE *f, const OtrlSMState *sm)
-{
-    fprintf(f, "  SM state:\n");
-    fprintf(f, "    Next expected: %d (%s)\n", sm->nextExpected,
-	sm->nextExpected == OTRL_SMP_EXPECT1 ? "EXPECT1" :
-	sm->nextExpected == OTRL_SMP_EXPECT2 ? "EXPECT2" :
-	sm->nextExpected == OTRL_SMP_EXPECT3 ? "EXPECT3" :
-	sm->nextExpected == OTRL_SMP_EXPECT4 ? "EXPECT4" :
-	sm->nextExpected == OTRL_SMP_EXPECT5 ? "EXPECT5" :
-	"INVALID");
-    fprintf(f, "    Received_Q: %d\n", sm->received_question);
-    fprintf(f, "    Progress state: %d (%s)\n", sm->sm_prog_state,
-	sm->sm_prog_state == OTRL_SMP_PROG_OK ? "OK" :
-	sm->sm_prog_state == OTRL_SMP_PROG_CHEATED ? "CHEATED" :
-	sm->sm_prog_state == OTRL_SMP_PROG_FAILED ? "FAILED" :
-	sm->sm_prog_state == OTRL_SMP_PROG_SUCCEEDED ? "SUCCEEDED" :
-	"INVALID");
-}
-
-#endif
-
-static const int SM_MSG1_LEN = 6;
-static const int SM_MSG2_LEN = 11;
-static const int SM_MSG3_LEN = 8;
-static const int SM_MSG4_LEN = 3;
 
 /* The modulus p */
-static const char* SM_MODULUS_S = "0x"
+static const unsigned char* SM_MODULUS_S = (const unsigned char*) "0x"
     "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
     "29024E088A67CC74020BBEA63B139B22514A08798E3404DD"
     "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"
@@ -71,7 +43,7 @@ static const char* SM_MODULUS_S = "0x"
     "83655D23DCA3AD961C62F356208552BB9ED529077096966D"
     "670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF";
 /* The order of the group q = (p-1)/2 */
-static const char* SM_ORDER_S = "0x"
+static const unsigned char* SM_ORDER_S = (const unsigned char*) "0x"
     "7FFFFFFFFFFFFFFFE487ED5110B4611A62633145C06E0E68"
     "948127044533E63A0105DF531D89CD9128A5043CC71A026E"
     "F7CA8CD9E69D218D98158536F92F8A1BA7F09AB6B6A8E122"
@@ -80,7 +52,7 @@ static const char* SM_ORDER_S = "0x"
     "E1003E5C50B1DF82CC6D241B0E2AE9CD348B1FD47E9267AF"
     "C1B2AE91EE51D6CB0E3179AB1042A95DCF6A9483B84B4B36"
     "B3861AA7255E4C0278BA36046511B993FFFFFFFFFFFFFFFF";
-static const char *SM_GENERATOR_S = "0x02";
+static const unsigned char *SM_GENERATOR_S = (const unsigned char*) "0x02";
 static const int SM_MOD_LEN_BITS = 1536;
 static const int SM_MOD_LEN_BYTES = 192;
 
@@ -96,12 +68,9 @@ static gcry_mpi_t SM_MODULUS_MINUS_2 = NULL;
 void otrl_sm_init(void)
 {
     gcry_check_version(NULL);
-    gcry_mpi_scan(&SM_MODULUS, GCRYMPI_FMT_HEX,
-	(const unsigned char *)SM_MODULUS_S, 0, NULL);
-    gcry_mpi_scan(&SM_ORDER, GCRYMPI_FMT_HEX,
-	(const unsigned char *)SM_ORDER_S, 0, NULL);
-    gcry_mpi_scan(&SM_GENERATOR, GCRYMPI_FMT_HEX,
-	(const unsigned char *)SM_GENERATOR_S, 0, NULL);
+    gcry_mpi_scan(&SM_MODULUS, GCRYMPI_FMT_HEX, SM_MODULUS_S, 0, NULL);
+    gcry_mpi_scan(&SM_ORDER, GCRYMPI_FMT_HEX, SM_ORDER_S, 0, NULL);
+    gcry_mpi_scan(&SM_GENERATOR, GCRYMPI_FMT_HEX, SM_GENERATOR_S, 0, NULL);
     SM_MODULUS_MINUS_2 = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_sub_ui(SM_MODULUS_MINUS_2, SM_MODULUS, 2);
 }
@@ -111,19 +80,9 @@ void otrl_sm_init(void)
  */
 void otrl_sm_state_new(OtrlSMState *smst)
 {
-    smst->secret = NULL;
-    smst->x2 = NULL;
-    smst->x3 = NULL;
-    smst->g1 = NULL;
-    smst->g2 = NULL;
-    smst->g3 = NULL;
-    smst->g3o = NULL;
-    smst->p = NULL;
-    smst->q = NULL;
-    smst->pab = NULL;
-    smst->qab = NULL;
+    memset(smst, 0, sizeof(OtrlSMState));
+
     smst->nextExpected = OTRL_SMP_EXPECT1;
-    smst->received_question = 0;
     smst->sm_prog_state = OTRL_SMP_PROG_OK;
 }
 
@@ -134,9 +93,9 @@ void otrl_sm_state_new(OtrlSMState *smst)
 void otrl_sm_state_init(OtrlSMState *smst)
 {
     otrl_sm_state_free(smst);
+    memset(smst, 0, sizeof(OtrlSMState));
+
     smst->secret = gcry_mpi_snew(SM_MOD_LEN_BITS);
-    smst->x2 = NULL;
-    smst->x3 = NULL;
     smst->g1 = gcry_mpi_copy(SM_GENERATOR);
     smst->g2 = gcry_mpi_new(SM_MOD_LEN_BITS);
     smst->g3 = gcry_mpi_new(SM_MOD_LEN_BITS);
@@ -145,7 +104,6 @@ void otrl_sm_state_init(OtrlSMState *smst)
     smst->q = gcry_mpi_new(SM_MOD_LEN_BITS);
     smst->pab = gcry_mpi_new(SM_MOD_LEN_BITS);
     smst->qab = gcry_mpi_new(SM_MOD_LEN_BITS);
-    smst->received_question = 0;
     smst->sm_prog_state = OTRL_SMP_PROG_OK;
 }
 
@@ -248,12 +206,11 @@ void otrl_sm_state_free(OtrlSMState *smst)
  */
 void otrl_sm_msg_free(gcry_mpi_t **message, int msglen)
 {
-    gcry_mpi_t *msg = *message;
     int i;
     for (i=0; i<msglen; i++) {
-	gcry_mpi_release(msg[i]);
+	gcry_mpi_release((*message)[i]);
     }
-    free(msg);
+    free(*message);
     *message = NULL;
 }
 
@@ -294,6 +251,9 @@ static gcry_error_t otrl_sm_hash(gcry_mpi_t* hash, int version,
     }
 
     input = malloc(totalsize);
+    if (!input) {
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
     input[0] = (unsigned char)version;
     input[1] = (unsigned char)((sizea >> 24) & 0xFF);
     input[2] = (unsigned char)((sizea >> 16) & 0xFF);
@@ -329,9 +289,19 @@ static gcry_error_t serialize_mpi_array(unsigned char **buffer, int *buflen,
 {
     size_t totalsize = 0, lenp, nextsize;
     unsigned int i, j;
-    size_t *list_sizes = malloc(count * sizeof(size_t));
-    unsigned char **tempbuffer = malloc(count * sizeof(unsigned char *));
+    size_t *list_sizes;
+    unsigned char **tempbuffer;
     unsigned char *bufp;
+
+    list_sizes = calloc(count, sizeof(size_t));
+    if (!list_sizes) {
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
+    tempbuffer = calloc(count, sizeof(unsigned char *));
+    if (!tempbuffer) {
+        free (list_sizes);
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
 
     for (i=0; i<count; i++) {
 	gcry_mpi_aprint(GCRYMPI_FMT_USG, &(tempbuffer[i]), &(list_sizes[i]),
@@ -340,7 +310,12 @@ static gcry_error_t serialize_mpi_array(unsigned char **buffer, int *buflen,
     }
 
     *buflen = (count+1)*4 + totalsize;
-    *buffer = malloc(*buflen * sizeof(char));
+    *buffer = calloc(*buflen, sizeof(char));
+    if (!(*buffer)) {
+        free (tempbuffer);
+        free (list_sizes);
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
 
     bufp = *buffer;
     lenp = totalsize;
@@ -381,7 +356,10 @@ static gcry_error_t unserialize_mpi_array(gcry_mpi_t **mpis,
     read_int(thecount);
     if (thecount != expcount) goto invval;
 
-    *mpis = malloc(thecount * sizeof(gcry_mpi_t));
+    *mpis = calloc(thecount, sizeof(gcry_mpi_t));
+    if (!(*mpis)) {
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
 
     for (i=0; i<thecount; i++) {
 	(*mpis)[i] = NULL;

@@ -39,10 +39,6 @@
 #include "tlv.h"
 #include "serial.h"
 
-#if OTRL_DEBUGGING
-extern const char *OTRL_DEBUGGING_DEBUGSTR;
-#endif
-
 /* For now, we need to know the API version the client is using so that
  * we don't use any UI callbacks it hasn't set. */
 unsigned int otrl_api_version = 0;
@@ -80,12 +76,6 @@ gcry_error_t otrl_init(unsigned int ver_major, unsigned int ver_minor,
     /* Initialize the SM module */
     otrl_sm_init();
 
-#if OTRL_DEBUGGING
-    /* Inform the user that debugging is available */
-    fprintf(stderr, "\nlibotr debugging is available.  Type %s in a message\n"
-	    "  to see debug info.\n\n", OTRL_DEBUGGING_DEBUGSTR);
-#endif
-
     return gcry_error(GPG_ERR_NO_ERROR);
 }
 
@@ -100,13 +90,14 @@ const char *otrl_version(void)
 static gcry_error_t reveal_macs(ConnContext *context,
 	DH_sesskeys *sess1, DH_sesskeys *sess2)
 {
-    unsigned int numnew = sess1->rcvmacused + sess1->sendmacused +
+    const unsigned int numnew = sess1->rcvmacused + sess1->sendmacused +
 	sess2->rcvmacused + sess2->sendmacused;
     unsigned int newnumsaved;
     unsigned char *newmacs;
 
     /* Is there anything to do? */
-    if (numnew == 0) return gcry_error(GPG_ERR_NO_ERROR);
+    if (numnew == 0)
+		return gcry_error(GPG_ERR_NO_ERROR);
 
     newnumsaved = context->context_priv->numsavedkeys + numnew;
     newmacs = realloc(context->context_priv->saved_mac_keys,
@@ -234,7 +225,7 @@ static gcry_error_t rotate_y_keys(ConnContext *context, gcry_mpi_t new_y)
 char *otrl_proto_default_query_msg(const char *ourname, OtrlPolicy policy)
 {
     char *msg;
-    int v1_supported, v2_supported, v3_supported;
+    int v2_supported, v3_supported;
     char *version_tag;
     char *bufp;
     /* Don't use g_strdup_printf here, because someone (not us) is going
@@ -249,15 +240,13 @@ char *otrl_proto_default_query_msg(const char *ourname, OtrlPolicy policy)
 	    "https://otr.cypherpunks.ca/</a> for more information.";
 
     /* Figure out the version tag */
-    v1_supported = (policy & OTRL_POLICY_ALLOW_V1);
     v2_supported = (policy & OTRL_POLICY_ALLOW_V2);
     v3_supported = (policy & OTRL_POLICY_ALLOW_V3);
     version_tag = malloc(8);
-    bufp = version_tag;
-    if (v1_supported) {
-	*bufp = '?';
-	bufp++;
+    if (!version_tag) {
+        return NULL;
     }
+    bufp = version_tag;
     if (v2_supported || v3_supported) {
 	*bufp = 'v';
 	bufp++;
@@ -323,9 +312,6 @@ unsigned int otrl_proto_query_bestversion(const char *otrquerymsg,
     if ((policy & OTRL_POLICY_ALLOW_V2) && (query_versions & (1<<1))) {
 	return 2;
     }
-    if ((policy & OTRL_POLICY_ALLOW_V1) && (query_versions & (1<<0))) {
-	return 1;
-    }
     return 0;
 }
 
@@ -357,9 +343,6 @@ unsigned int otrl_proto_whitespace_bestversion(const char *msg,
 	    }
 	}
 	if (allwhite) {
-	    if (!strncmp(endtag, OTRL_MESSAGE_TAG_V1, 8)) {
-		query_versions |= (1<<0);
-	    }
 	    if (!strncmp(endtag, OTRL_MESSAGE_TAG_V2, 8)) {
 		query_versions |= (1<<1);
 	    }
@@ -380,9 +363,6 @@ unsigned int otrl_proto_whitespace_bestversion(const char *msg,
     }
     if ((policy & OTRL_POLICY_ALLOW_V2) && (query_versions & (1<<1))) {
 	return 2;
-    }
-    if ((policy & OTRL_POLICY_ALLOW_V1) && (query_versions & (1<<0))) {
-	return 1;
     }
     return 0;
 }
@@ -413,7 +393,6 @@ OtrlMessageType otrl_proto_message_type(const char *message)
     } else {
 	if (!strncmp(otrtag, "?OTR?", 5)) return OTRL_MSGTYPE_QUERY;
 	if (!strncmp(otrtag, "?OTRv", 5)) return OTRL_MSGTYPE_QUERY;
-	if (!strncmp(otrtag, "?OTR:AAEK", 9)) return OTRL_MSGTYPE_V1_KEYEXCH;
 	if (!strncmp(otrtag, "?OTR:AAED", 9)) return OTRL_MSGTYPE_DATA;
 	if (!strncmp(otrtag, "?OTR Error:", 11)) return OTRL_MSGTYPE_ERROR;
     }
@@ -460,6 +439,9 @@ gcry_error_t otrl_proto_instance(const char *otrmsg,
 
     /* Decode and extract instance tag */
     bufp = malloc(OTRL_B64_MAX_DECODED_SIZE(12));
+    if (!bufp) {
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
     bufp_head = bufp;
     lenp = otrl_base64_decode(bufp, otrtag+9, 12);
     read_int(*instance_from);
@@ -521,10 +503,13 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
 	    context->context_priv->our_dh_key.pub);
     buflen += pubkeylen + 4;
     buf = malloc(buflen);
+    if (buf == NULL) {
+        gcry_free(msgdup);
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
     msgbuf = gcry_malloc_secure(msglen);
-    if (buf == NULL || msgbuf == NULL) {
+    if (msgbuf == NULL) {
 	free(buf);
-	gcry_free(msgbuf);
 	gcry_free(msgdup);
 	return gcry_error(GPG_ERR_ENOMEM);
     }
@@ -541,15 +526,12 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
 	memmove(bufp, "\x00\x03\x03", 3);  /* header */
     }
 
-    debug_data("Header", bufp, 3);
     bufp += 3; lenp -= 3;
 
     if (version == 3) {
 	/* v3 instance tags */
 	write_int(context->our_instance);
-	debug_int("Sender instag", bufp-4);
 	write_int(context->their_instance);
-	debug_int("Recipient instag", bufp-4);
     }
 
     if (version == 2 || version == 3) {
@@ -558,19 +540,15 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     }
 
     write_int(context->context_priv->our_keyid-1); /* sender keyid */
-    debug_int("Sender keyid", bufp-4);
     write_int(context->context_priv->their_keyid); /* recipient keyid */
-    debug_int("Recipient keyid", bufp-4);
 
     write_mpi(context->context_priv->our_dh_key.pub, pubkeylen, "Y");  /* Y */
 
     otrl_dh_incctr(sess->sendctr);
     memmove(bufp, sess->sendctr, 8);      /* Counter (top 8 bytes only) */
-    debug_data("Counter", bufp, 8);
     bufp += 8; lenp -= 8;
 
     write_int(msglen);                        /* length of encrypted data */
-    debug_int("Msg len", bufp-4);
 
     err = gcry_cipher_reset(sess->sendenc);
     if (err) goto err;
@@ -578,23 +556,19 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     if (err) goto err;
     err = gcry_cipher_encrypt(sess->sendenc, bufp, msglen, msgbuf, msglen);
     if (err) goto err;                              /* encrypted data */
-    debug_data("Enc data", bufp, msglen);
     bufp += msglen;
     lenp -= msglen;
 
     gcry_md_reset(sess->sendmac);
     gcry_md_write(sess->sendmac, buf, bufp-buf);
     memmove(bufp, gcry_md_read(sess->sendmac, GCRY_MD_SHA1), 20);
-    debug_data("MAC", bufp, 20);
     bufp += 20;                                         /* MAC */
     lenp -= 20;
 
     write_int(reveallen);                     /* length of revealed MAC keys */
-    debug_int("Revealed MAC length", bufp-4);
 
     if (reveallen > 0) {
 	memmove(bufp, context->context_priv->saved_mac_keys, reveallen);
-	debug_data("Revealed MAC data", bufp, reveallen);
 	bufp += reveallen; lenp -= reveallen;
 	free(context->context_priv->saved_mac_keys);
 	context->context_priv->saved_mac_keys = NULL;
@@ -1078,4 +1052,3 @@ void otrl_proto_fragment_free(char ***fragments, unsigned short arraylen)
 	free(fragmentarray);
     }
 }
-

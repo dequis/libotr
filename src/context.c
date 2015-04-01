@@ -21,7 +21,6 @@
 
 /* system headers */
 #include <stdlib.h>
-#include <assert.h>
 
 /* libgcrypt headers */
 #include <gcrypt.h>
@@ -30,96 +29,6 @@
 #include "context.h"
 #include "instag.h"
 
-#if OTRL_DEBUGGING
-#include <stdio.h>
-
-void otrl_auth_dump(FILE *f, const OtrlAuthInfo *auth);
-void otrl_sm_dump(FILE *f, const OtrlSMState *sm);
-
-/* Dump the contents of a context to the FILE *f. */
-void otrl_context_dump(FILE *f, const ConnContext *context)
-{
-    const Fingerprint *fing;
-
-    fprintf(f, "Context %p:\n\n", context);
-
-    fprintf(f, "  Username: %s\n", context->username);
-    fprintf(f, "  Accountname: %s\n", context->accountname);
-    fprintf(f, "  Protocol: %s\n\n", context->protocol);
-    fprintf(f, "  Master context: %p%s\n", context->m_context,
-	    context->m_context == context ? " IS MASTER" : "");
-    fprintf(f, "  Recent recv child: %p\n", context->recent_rcvd_child);
-    fprintf(f, "  Recent sent child: %p\n", context->recent_sent_child);
-    fprintf(f, "  Recent child: %p\n\n", context->recent_child);
-    fprintf(f, "  Our instance:   %08x\n", context->our_instance);
-    fprintf(f, "  Their instance: %08x\n\n", context->their_instance);
-    fprintf(f, "  Msgstate: %d (%s)\n\n", context->msgstate,
-	context->msgstate == OTRL_MSGSTATE_PLAINTEXT ? "PLAINTEXT" :
-	context->msgstate == OTRL_MSGSTATE_ENCRYPTED ? "ENCRYPTED" :
-	context->msgstate == OTRL_MSGSTATE_FINISHED ? "FINISHED" :
-	"INVALID");
-    otrl_auth_dump(f, &context->auth);
-    fprintf(f, "\n  Fingerprints:\n");
-    for (fing = context->fingerprint_root.next; fing; fing = fing->next) {
-	fprintf(f, "    %p ", fing);
-	if (fing->fingerprint == NULL) {
-	    fprintf(f, "(null)");
-	} else {
-	    int i;
-	    for (i=0;i<20;++i) {
-		fprintf(f, "%02x", fing->fingerprint[i]);
-	    }
-	}
-	fprintf(f, " %p", fing->context);
-	if (fing->trust && fing->trust[0]) {
-	    fprintf(f, " %s", fing->trust);
-	}
-	fprintf(f, "\n");
-    }
-    fprintf(f, "\n  Active fingerprint: %p\n\n", context->active_fingerprint);
-    fprintf(f, "  Protocol version: %d\n", context->protocol_version);
-    fprintf(f, "  OTR offer: %d (%s)\n\n", context->otr_offer,
-	context->otr_offer == OFFER_NOT ? "NOT" :
-	context->otr_offer == OFFER_SENT ? "SENT" :
-	context->otr_offer == OFFER_REJECTED ? "REJECTED" :
-	context->otr_offer == OFFER_ACCEPTED ? "ACCEPTED" :
-	"INVALID");
-
-    fprintf(f, "  Application data: %p\n", context->app_data);
-    if (context->smstate == NULL) {
-	fprintf(f, "  SM state: NULL\n");
-    } else {
-	otrl_sm_dump(f, context->smstate);
-    }
-    fprintf(f, "\n");
-}
-
-/* Dump the master context of this context, and all of its children. */
-void otrl_context_siblings_dump(FILE *f, const ConnContext *context)
-{
-    const ConnContext *citer;
-    for (citer = context->m_context;
-	    citer && citer->m_context == context->m_context;
-	    citer = citer->next) {
-	if (citer == context) {
-	    fprintf(f, "*** ");
-	}
-	otrl_context_dump(f, citer);
-    }
-}
-
-/* Dump all contexts. */
-void otrl_context_all_dump(FILE *f, OtrlUserState us)
-{
-    const ConnContext *citer;
-    unsigned int ctxnum = 1;
-    for (citer = us->context_root; citer; citer = citer->next, ++ctxnum) {
-	fprintf(f, "%u. ", ctxnum);
-	otrl_context_dump(f, citer);
-    }
-}
-#endif
-
 /* Create a new connection context. */
 static ConnContext * new_context(const char * user, const char * accountname,
 	const char * protocol)
@@ -127,8 +36,10 @@ static ConnContext * new_context(const char * user, const char * accountname,
     ConnContext * context;
     OtrlSMState *smstate;
 
-    context = malloc(sizeof(ConnContext));
-    assert(context != NULL);
+    context = calloc(1, sizeof(ConnContext));
+    if(!context) {
+        return NULL;
+    }
 
     context->username = strdup(user);
     context->accountname = strdup(accountname);
@@ -138,30 +49,26 @@ static ConnContext * new_context(const char * user, const char * accountname,
     otrl_auth_new(context);
 
     smstate = malloc(sizeof(OtrlSMState));
-    assert(smstate != NULL);
+    if (!smstate) {
+	free(context);
+	return NULL;
+    }
+
     otrl_sm_state_new(smstate);
     context->smstate = smstate;
 
-    context->our_instance = 0;
     context->their_instance = OTRL_INSTAG_MASTER;
-    context->fingerprint_root.fingerprint = NULL;
     context->fingerprint_root.context = context;
-    context->fingerprint_root.next = NULL;
-    context->fingerprint_root.tous = NULL;
-    context->active_fingerprint = NULL;
-    memset(context->sessionid, 0, 20);
-    context->sessionid_len = 0;
-    context->protocol_version = 0;
     context->otr_offer = OFFER_NOT;
-    context->app_data = NULL;
-    context->app_data_free = NULL;
     context->context_priv = otrl_context_priv_new();
-    assert(context->context_priv != NULL);
-    context->next = NULL;
+
+    if (!context->context_priv) {
+	free(context);
+	free(smstate);
+	return NULL;
+    }
+
     context->m_context = context;
-    context->recent_rcvd_child = NULL;
-    context->recent_sent_child = NULL;
-    context->recent_child = NULL;
 
     return context;
 }
@@ -385,9 +292,14 @@ Fingerprint *otrl_context_find_fingerprint(ConnContext *context,
     if (add_if_missing) {
 	if (addedp) *addedp = 1;
 	f = malloc(sizeof(*f));
-	assert(f != NULL);
+	if (!f) {
+	    return NULL;
+	}
 	f->fingerprint = malloc(20);
-	assert(f->fingerprint != NULL);
+	if (!f->fingerprint) {
+	    free(f);
+	    return NULL;
+	}
 	memmove(f->fingerprint, fingerprint, 20);
 	f->context = context;
 	f->trust = NULL;

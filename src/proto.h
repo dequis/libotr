@@ -29,7 +29,6 @@
  * other side speaks OTR, and try to establish a connection. */
 #define OTRL_MESSAGE_TAG_BASE " \t  \t\t\t\t \t \t \t  "
 /* The following must each be of length 8 */
-#define OTRL_MESSAGE_TAG_V1 " \t \t  \t "
 #define OTRL_MESSAGE_TAG_V2 "  \t\t  \t "
 #define OTRL_MESSAGE_TAG_V3 "  \t\t  \t\t"
 
@@ -38,7 +37,6 @@
 
 typedef unsigned int OtrlPolicy;
 
-#define OTRL_POLICY_ALLOW_V1			0x01
 #define OTRL_POLICY_ALLOW_V2			0x02
 #define OTRL_POLICY_ALLOW_V3			0x04
 #define OTRL_POLICY_REQUIRE_ENCRYPTION		0x08
@@ -46,14 +44,12 @@ typedef unsigned int OtrlPolicy;
 #define OTRL_POLICY_WHITESPACE_START_AKE	0x20
 #define OTRL_POLICY_ERROR_START_AKE		0x40
 
-#define OTRL_POLICY_VERSION_MASK (OTRL_POLICY_ALLOW_V1 | OTRL_POLICY_ALLOW_V2 |\
-	OTRL_POLICY_ALLOW_V3)
+#define OTRL_POLICY_VERSION_MASK (OTRL_POLICY_ALLOW_V2 | OTRL_POLICY_ALLOW_V3)
 
 /* Length of OTR message headers */
 #define OTRL_HEADER_LEN		3
 #define OTRL_B64_HEADER_LEN	4
 
-/* Analogous to v1 policies */
 #define OTRL_POLICY_NEVER			0x00
 #define OTRL_POLICY_OPPORTUNISTIC \
 	    ( OTRL_POLICY_ALLOW_V2 | \
@@ -73,31 +69,30 @@ typedef unsigned int OtrlPolicy;
 #define OTRL_POLICY_DEFAULT OTRL_POLICY_OPPORTUNISTIC
 
 typedef enum {
-    OTRL_MSGTYPE_NOTOTR,
-    OTRL_MSGTYPE_TAGGEDPLAINTEXT,
-    OTRL_MSGTYPE_QUERY,
-    OTRL_MSGTYPE_DH_COMMIT,
-    OTRL_MSGTYPE_DH_KEY,
-    OTRL_MSGTYPE_REVEALSIG,
-    OTRL_MSGTYPE_SIGNATURE,
-    OTRL_MSGTYPE_V1_KEYEXCH,
-    OTRL_MSGTYPE_DATA,
-    OTRL_MSGTYPE_ERROR,
-    OTRL_MSGTYPE_UNKNOWN
+    OTRL_MSGTYPE_NOTOTR = 0,
+    OTRL_MSGTYPE_TAGGEDPLAINTEXT = 1,
+    OTRL_MSGTYPE_QUERY = 2,
+    OTRL_MSGTYPE_DH_COMMIT = 3,
+    OTRL_MSGTYPE_DH_KEY = 4,
+    OTRL_MSGTYPE_REVEALSIG = 5,
+    OTRL_MSGTYPE_SIGNATURE = 6,
+    OTRL_MSGTYPE_DATA = 7,
+    OTRL_MSGTYPE_ERROR = 8,
+    OTRL_MSGTYPE_UNKNOWN = 9
 } OtrlMessageType;
 
 typedef enum {
-    OTRL_FRAGMENT_UNFRAGMENTED,
-    OTRL_FRAGMENT_INCOMPLETE,
-    OTRL_FRAGMENT_COMPLETE
+    OTRL_FRAGMENT_UNFRAGMENTED = 0,
+    OTRL_FRAGMENT_INCOMPLETE = 1,
+    OTRL_FRAGMENT_COMPLETE = 2
 } OtrlFragmentResult;
 
 typedef enum {
-    OTRL_FRAGMENT_SEND_SKIP, /* Return new message back to caller,
+    OTRL_FRAGMENT_SEND_SKIP = 0, /* Return new message back to caller,
 			      * but don't inject. */
-    OTRL_FRAGMENT_SEND_ALL,
-    OTRL_FRAGMENT_SEND_ALL_BUT_FIRST,
-    OTRL_FRAGMENT_SEND_ALL_BUT_LAST
+    OTRL_FRAGMENT_SEND_ALL = 1,
+    OTRL_FRAGMENT_SEND_ALL_BUT_FIRST = 2,
+    OTRL_FRAGMENT_SEND_ALL_BUT_LAST = 3
 } OtrlFragmentPolicy;
 
 /* Initialize the OTR library.  Pass the version of the API you are

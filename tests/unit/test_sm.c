@@ -33,11 +33,6 @@ static const int SM_MOD_LEN_BITS = 1536;
 static const char *SM_GENERATOR_S = "0x02";
 static gcry_mpi_t SM_GENERATOR = NULL;
 
-static const int SM_MSG1_LEN = 6;
-static const int SM_MSG2_LEN = 11;
-static const int SM_MSG3_LEN = 8;
-static const int SM_MSG4_LEN = 3;
-
 /* Alice and Bob SM state for the SMP tests. */
 static OtrlSMState *astate;
 static OtrlSMState *bstate;

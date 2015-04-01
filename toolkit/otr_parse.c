@@ -36,7 +36,6 @@ static void parse(const char *msg)
     KeyMsg kmsg;
     RevealSigMsg rmsg;
     SignatureMsg smsg;
-    KeyExchMsg keyexch;
     DataMsg datamsg;
 
     switch(mtype) {
@@ -120,25 +119,6 @@ static void parse(const char *msg)
 	    dump_data(stdout, "\tMAC", smsg->mac, 20);
 	    printf("\n");
 	    free_signature(smsg);
-	    break;
-	case OTRL_MSGTYPE_V1_KEYEXCH:
-	    keyexch = parse_keyexch(msg);
-	    if (!keyexch) {
-		printf("Invalid Key Exchange Message\n\n");
-		break;
-	    }
-	    printf("Key Exchange Message:\n");
-	    dump_int(stdout, "\tReply", keyexch->reply);
-	    dump_mpi(stdout, "\tDSA p", keyexch->p);
-	    dump_mpi(stdout, "\tDSA q", keyexch->q);
-	    dump_mpi(stdout, "\tDSA g", keyexch->g);
-	    dump_mpi(stdout, "\tDSA e", keyexch->e);
-	    dump_int(stdout, "\tKeyID", keyexch->keyid);
-	    dump_mpi(stdout, "\tDH y", keyexch->y);
-	    dump_mpi(stdout, "\tSIG r", keyexch->r);
-	    dump_mpi(stdout, "\tSIG s", keyexch->s);
-	    printf("\n");
-	    free_keyexch(keyexch);
 	    break;
 	case OTRL_MSGTYPE_DATA:
 	    datamsg = parse_datamsg(msg);

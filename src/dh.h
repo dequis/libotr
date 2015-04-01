@@ -30,8 +30,8 @@ typedef struct {
 
 /* Which half of the secure session id should be shown in bold? */
 typedef enum {
-    OTRL_SESSIONID_FIRST_HALF_BOLD,
-    OTRL_SESSIONID_SECOND_HALF_BOLD
+    OTRL_SESSIONID_FIRST_HALF_BOLD = 0,
+    OTRL_SESSIONID_SECOND_HALF_BOLD = 1
 } OtrlSessionIdHalf;
 
 #define OTRL_EXTRAKEY_BYTES 32
@@ -93,14 +93,6 @@ gcry_error_t otrl_dh_compute_v2_auth_keys(const DH_keypair *our_dh,
 	gcry_cipher_hd_t *enc_c, gcry_cipher_hd_t *enc_cp,
 	gcry_md_hd_t *mac_m1, gcry_md_hd_t *mac_m1p,
 	gcry_md_hd_t *mac_m2, gcry_md_hd_t *mac_m2p);
-
-/*
- * Compute the secure session id, given our DH key and their DH public
- * key.
- */
-gcry_error_t otrl_dh_compute_v1_session_id(const DH_keypair *our_dh,
-	gcry_mpi_t their_pub, unsigned char *sessionid, size_t *sessionidlenp,
-	OtrlSessionIdHalf *halfp);
 
 /*
  * Deallocate the contents of a DH_sesskeys (but not the DH_sesskeys

@@ -165,7 +165,7 @@ static void test_otrl_dh_keypair_free(void)
 	DH_keypair kp;
 	otrl_dh_gen_keypair(DH1536_GROUP_ID, &kp);
 	otrl_dh_keypair_free(&kp);
-	ok(kp.pub == NULL && kp.priv == NULL && kp.groupid == DH1536_GROUP_ID,
+	ok(kp.pub == NULL && kp.priv == NULL && kp.groupid == 0,
 			"DH_keypair free'd with success");
 
 }

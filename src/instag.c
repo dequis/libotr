@@ -117,6 +117,10 @@ gcry_error_t otrl_instag_read_FILEp(OtrlUserState us, FILE *instf)
 	*pos = '\0';
 	pos++;
 	p->accountname = malloc(pos - prevpos);
+	if (!p->accountname) {
+	    free(p);
+	    return gcry_error(GPG_ERR_ENOMEM);
+	}
 	memmove(p->accountname, prevpos, pos - prevpos);
 
 	prevpos = pos;
@@ -128,6 +132,11 @@ gcry_error_t otrl_instag_read_FILEp(OtrlUserState us, FILE *instf)
 	*pos = '\0';
 	pos++;
 	p->protocol = malloc(pos - prevpos);
+	if (!p->protocol) {
+	    free(p->accountname);
+	    free(p);
+	    return gcry_error(GPG_ERR_ENOMEM);
+	}
 	memmove(p->protocol, prevpos, pos - prevpos);
 
 	prevpos = pos;
@@ -207,6 +216,9 @@ gcry_error_t otrl_instag_generate_FILEp(OtrlUserState us, FILE *instf,
     if (!accountname || !protocol) return gcry_error(GPG_ERR_NO_ERROR);
 
     p = (OtrlInsTag *)malloc(sizeof(OtrlInsTag));
+    if (!p) {
+	    return gcry_error(GPG_ERR_ENOMEM);
+    }
     p->accountname = strdup(accountname);
     p->protocol = strdup(protocol);
 
@@ -258,4 +270,3 @@ gcry_error_t otrl_instag_write_FILEp(OtrlUserState us, FILE *instf)
 
     return gcry_error(GPG_ERR_NO_ERROR);
 }
-

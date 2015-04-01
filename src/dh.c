@@ -65,9 +65,7 @@ void otrl_dh_init(void)
  */
 void otrl_dh_keypair_init(DH_keypair *kp)
 {
-    kp->groupid = 0;
-    kp->priv = NULL;
-    kp->pub = NULL;
+    memset(kp, 0, sizeof(DH_keypair));
 }
 
 /*
@@ -88,8 +86,7 @@ void otrl_dh_keypair_free(DH_keypair *kp)
 {
     gcry_mpi_release(kp->priv);
     gcry_mpi_release(kp->pub);
-    kp->priv = NULL;
-    kp->pub = NULL;
+    memset(kp, 0, sizeof(DH_keypair));
 }
 
 /*
@@ -357,72 +354,6 @@ err:
 }
 
 /*
- * Compute the secure session id, given our DH key and their DH public
- * key.
- */
-gcry_error_t otrl_dh_compute_v1_session_id(const DH_keypair *our_dh,
-	gcry_mpi_t their_pub, unsigned char *sessionid, size_t *sessionidlenp,
-	OtrlSessionIdHalf *halfp)
-{
-    gcry_mpi_t s;
-    size_t slen;
-    unsigned char *sdata;
-    unsigned char *hashdata;
-
-    if (our_dh->groupid != DH1536_GROUP_ID) {
-	/* Invalid group id */
-	return gcry_error(GPG_ERR_INV_VALUE);
-    }
-
-    /* Check that their_pub is in range */
-    if (gcry_mpi_cmp_ui(their_pub, 2) < 0 ||
-	    gcry_mpi_cmp(their_pub, DH1536_MODULUS_MINUS_2) > 0) {
-	/* Invalid pubkey */
-	return gcry_error(GPG_ERR_INV_VALUE);
-    }
-
-    /* Calculate the shared secret MPI */
-    s = gcry_mpi_snew(DH1536_MOD_LEN_BITS);
-    gcry_mpi_powm(s, their_pub, our_dh->priv, DH1536_MODULUS);
-
-    /* Output it in the right format */
-    gcry_mpi_print(GCRYMPI_FMT_USG, NULL, 0, &slen, s);
-    sdata = gcry_malloc_secure(slen + 5);
-    if (!sdata) {
-	gcry_mpi_release(s);
-	return gcry_error(GPG_ERR_ENOMEM);
-    }
-    sdata[1] = (slen >> 24) & 0xff;
-    sdata[2] = (slen >> 16) & 0xff;
-    sdata[3] = (slen >> 8) & 0xff;
-    sdata[4] = slen & 0xff;
-    gcry_mpi_print(GCRYMPI_FMT_USG, sdata+5, slen, NULL, s);
-    gcry_mpi_release(s);
-
-    /* Calculate the session id */
-    hashdata = gcry_malloc_secure(20);
-    if (!hashdata) {
-	gcry_free(sdata);
-	return gcry_error(GPG_ERR_ENOMEM);
-    }
-    sdata[0] = 0x00;
-    gcry_md_hash_buffer(GCRY_MD_SHA1, hashdata, sdata, slen+5);
-    memmove(sessionid, hashdata, 20);
-    *sessionidlenp = 20;
-
-    /* Which half should be bold? */
-    if (gcry_mpi_cmp(our_dh->pub, their_pub) > 0) {
-	*halfp = OTRL_SESSIONID_SECOND_HALF_BOLD;
-    } else {
-	*halfp = OTRL_SESSIONID_FIRST_HALF_BOLD;
-    }
-
-    gcry_free(hashdata);
-    gcry_free(sdata);
-    return gcry_error(GPG_ERR_NO_ERROR);
-}
-
-/*
  * Deallocate the contents of a DH_sesskeys (but not the DH_sesskeys
  * itself)
  */
@@ -441,17 +372,7 @@ void otrl_dh_session_free(DH_sesskeys *sess)
  */
 void otrl_dh_session_blank(DH_sesskeys *sess)
 {
-    sess->sendenc = NULL;
-    sess->sendmac = NULL;
-    sess->rcvenc = NULL;
-    sess->rcvmac = NULL;
-    memset(sess->sendctr, 0, 16);
-    memset(sess->rcvctr, 0, 16);
-    memset(sess->sendmackey, 0, 20);
-    memset(sess->rcvmackey, 0, 20);
-    sess->sendmacused = 0;
-    sess->rcvmacused = 0;
-    memset(sess->extrakey, 0, OTRL_EXTRAKEY_BYTES);
+    memset(sess, 0, sizeof(DH_sesskeys));
 }
 
 /* Increment the top half of a counter block */
