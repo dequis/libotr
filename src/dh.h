@@ -95,14 +95,6 @@ gcry_error_t otrl_dh_compute_v2_auth_keys(const DH_keypair *our_dh,
 	gcry_md_hd_t *mac_m2, gcry_md_hd_t *mac_m2p);
 
 /*
- * Compute the secure session id, given our DH key and their DH public
- * key.
- */
-gcry_error_t otrl_dh_compute_v1_session_id(const DH_keypair *our_dh,
-	gcry_mpi_t their_pub, unsigned char *sessionid, size_t *sessionidlenp,
-	OtrlSessionIdHalf *halfp);
-
-/*
  * Deallocate the contents of a DH_sesskeys (but not the DH_sesskeys
  * itself)
  */

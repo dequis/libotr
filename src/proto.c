@@ -234,7 +234,7 @@ static gcry_error_t rotate_y_keys(ConnContext *context, gcry_mpi_t new_y)
 char *otrl_proto_default_query_msg(const char *ourname, OtrlPolicy policy)
 {
     char *msg;
-    int v1_supported, v2_supported, v3_supported;
+    int v2_supported, v3_supported;
     char *version_tag;
     char *bufp;
     /* Don't use g_strdup_printf here, because someone (not us) is going
@@ -249,15 +249,13 @@ char *otrl_proto_default_query_msg(const char *ourname, OtrlPolicy policy)
 	    "https://otr.cypherpunks.ca/</a> for more information.";
 
     /* Figure out the version tag */
-    v1_supported = (policy & OTRL_POLICY_ALLOW_V1);
     v2_supported = (policy & OTRL_POLICY_ALLOW_V2);
     v3_supported = (policy & OTRL_POLICY_ALLOW_V3);
     version_tag = malloc(8);
-    bufp = version_tag;
-    if (v1_supported) {
-	*bufp = '?';
-	bufp++;
+    if (!version_tag) {
+        return NULL;
     }
+    bufp = version_tag;
     if (v2_supported || v3_supported) {
 	*bufp = 'v';
 	bufp++;
@@ -323,9 +321,6 @@ unsigned int otrl_proto_query_bestversion(const char *otrquerymsg,
     if ((policy & OTRL_POLICY_ALLOW_V2) && (query_versions & (1<<1))) {
 	return 2;
     }
-    if ((policy & OTRL_POLICY_ALLOW_V1) && (query_versions & (1<<0))) {
-	return 1;
-    }
     return 0;
 }
 
@@ -357,9 +352,6 @@ unsigned int otrl_proto_whitespace_bestversion(const char *msg,
 	    }
 	}
 	if (allwhite) {
-	    if (!strncmp(endtag, OTRL_MESSAGE_TAG_V1, 8)) {
-		query_versions |= (1<<0);
-	    }
 	    if (!strncmp(endtag, OTRL_MESSAGE_TAG_V2, 8)) {
 		query_versions |= (1<<1);
 	    }
@@ -380,9 +372,6 @@ unsigned int otrl_proto_whitespace_bestversion(const char *msg,
     }
     if ((policy & OTRL_POLICY_ALLOW_V2) && (query_versions & (1<<1))) {
 	return 2;
-    }
-    if ((policy & OTRL_POLICY_ALLOW_V1) && (query_versions & (1<<0))) {
-	return 1;
     }
     return 0;
 }
@@ -413,7 +402,6 @@ OtrlMessageType otrl_proto_message_type(const char *message)
     } else {
 	if (!strncmp(otrtag, "?OTR?", 5)) return OTRL_MSGTYPE_QUERY;
 	if (!strncmp(otrtag, "?OTRv", 5)) return OTRL_MSGTYPE_QUERY;
-	if (!strncmp(otrtag, "?OTR:AAEK", 9)) return OTRL_MSGTYPE_V1_KEYEXCH;
 	if (!strncmp(otrtag, "?OTR:AAED", 9)) return OTRL_MSGTYPE_DATA;
 	if (!strncmp(otrtag, "?OTR Error:", 11)) return OTRL_MSGTYPE_ERROR;
     }

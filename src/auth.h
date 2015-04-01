@@ -67,8 +67,7 @@ typedef struct {
 
     unsigned char secure_session_id[20];  /* The secure session id */
     size_t secure_session_id_len;         /* And its actual length,
-					     which may be either 20 (for
-					     v1) or 8 (for v2) */
+					     which is 8 for OTRv2 */
     OtrlSessionIdHalf session_id_half;    /* Which half of the session
 					     id gets shown in bold */
 
@@ -139,30 +138,6 @@ gcry_error_t otrl_auth_handle_revealsig(OtrlAuthInfo *auth,
  */
 gcry_error_t otrl_auth_handle_signature(OtrlAuthInfo *auth,
 	const char *sigmsg, int *havemsgp,
-	gcry_error_t (*auth_succeeded)(const OtrlAuthInfo *auth, void *asdata),
-	void *asdata);
-
-/*
- * Start a fresh AKE (version 1) using the given OtrlAuthInfo.  If
- * our_dh is NULL, generate a fresh DH keypair to use.  Otherwise, use a
- * copy of the one passed (with the given keyid).  Use the given private
- * key to sign the message.  If no error is returned, the message to
- * transmit will be contained in auth->lastauthmsg.
- */
-gcry_error_t otrl_auth_start_v1(OtrlAuthInfo *auth, DH_keypair *our_dh,
-	unsigned int our_keyid, OtrlPrivKey *privkey);
-
-/*
- * Handle an incoming v1 Key Exchange Message.  If no error is returned,
- * and *havemsgp is 1, the message to be sent will be left in
- * auth->lastauthmsg.  Use the given private authentication key to sign
- * messages.  Call the auth_secceeded callback if authentication is
- * successful.  If non-NULL, use a copy of the given D-H keypair, with
- * the given keyid.
- */
-gcry_error_t otrl_auth_handle_v1_key_exchange(OtrlAuthInfo *auth,
-	const char *keyexchmsg, int *havemsgp, OtrlPrivKey *privkey,
-	DH_keypair *our_dh, unsigned int our_keyid,
 	gcry_error_t (*auth_succeeded)(const OtrlAuthInfo *auth, void *asdata),
 	void *asdata);
 

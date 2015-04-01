@@ -92,14 +92,13 @@
         bufp += 3; lenp -= 3; \
     } while(0)
 
-/* Verify msg header is v1, v2 or v3 and has type x,
+/* Verify msg header is v2 or v3 and has type x,
 *  increment bufp past msg header */
 #define skip_header(x) do { \
         require_len(3); \
         if ((bufp[0] != 0x00) || (bufp[2] != x)) \
 	    goto invval; \
-        if ((bufp[1] == 0x01) || (bufp[1] == 0x02) || \
-                (bufp[1] == 0x03)) { \
+        if ((bufp[1] == 0x02) || (bufp[1] == 0x03)) { \
 	    bufp += 3; lenp -= 3; \
 	} else goto invval; \
     } while(0)

@@ -337,28 +337,21 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 		     * if he responds. */
 		    size_t msglen = strlen(original_msg);
 		    size_t basetaglen = strlen(OTRL_MESSAGE_TAG_BASE);
-		    size_t v1taglen = (policy & OTRL_POLICY_ALLOW_V1) ?
-			strlen(OTRL_MESSAGE_TAG_V1) : 0;
 		    size_t v2taglen = (policy & OTRL_POLICY_ALLOW_V2) ?
 			strlen(OTRL_MESSAGE_TAG_V2) : 0;
 		    size_t v3taglen = (policy & OTRL_POLICY_ALLOW_V3) ?
 			strlen(OTRL_MESSAGE_TAG_V3) : 0;
-		    char *taggedmsg = malloc(msglen + basetaglen + v1taglen
-			    + v2taglen + v3taglen + 1);
+		    char *taggedmsg = malloc(msglen + basetaglen + v2taglen + v3taglen
+				+ 1);
 		    if (taggedmsg) {
 			strcpy(taggedmsg, original_msg);
 			strcpy(taggedmsg + msglen, OTRL_MESSAGE_TAG_BASE);
-			if (v1taglen) {
-			    strcpy(taggedmsg + msglen + basetaglen,
-				    OTRL_MESSAGE_TAG_V1);
-			}
 			if (v2taglen) {
-			    strcpy(taggedmsg + msglen + basetaglen + v1taglen,
-				    OTRL_MESSAGE_TAG_V2);
+			    strcpy(taggedmsg + msglen + basetaglen, OTRL_MESSAGE_TAG_V2);
 			}
 			if (v3taglen) {
-			    strcpy(taggedmsg + msglen + basetaglen + v1taglen
-				    + v2taglen, OTRL_MESSAGE_TAG_V3);
+			    strcpy(taggedmsg + msglen + basetaglen + v2taglen,
+				    OTRL_MESSAGE_TAG_V3);
 			}
 			*messagep = taggedmsg;
 			context->otr_offer = OFFER_SENT;
@@ -1046,8 +1039,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 
     /* Check that this version is allowed by the policy */
     if (((version == 3) && !(policy & OTRL_POLICY_ALLOW_V3))
-	|| ((version == 2) && !(policy & OTRL_POLICY_ALLOW_V2))
-	|| ((version == 1) && !(policy & OTRL_POLICY_ALLOW_V1))) {
+	|| ((version == 2) && !(policy & OTRL_POLICY_ALLOW_V2))) {
 	    edata.ignore_message = 1;
 	    goto end;
     }
@@ -1145,22 +1137,10 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
     switch(msgtype) {
 	unsigned int bestversion;
 	const char *startwhite, *endwhite;
-	DH_keypair *our_dh;
-	unsigned int our_keyid;
 	OtrlPrivKey *privkey;
 	int haveauthmsg;
 
 	case OTRL_MSGTYPE_QUERY:
-	    /* See if we should use an existing DH keypair, or generate
-	     * a fresh one. */
-	    if (context->msgstate == OTRL_MSGSTATE_ENCRYPTED) {
-		our_dh = &(context->context_priv->our_old_dh_key);
-		our_keyid = context->context_priv->our_keyid - 1;
-	    } else {
-		our_dh = NULL;
-		our_keyid = 0;
-	    }
-
 	    /* Find the best version of OTR that we both speak */
 	    switch(otrl_proto_query_bestversion(message, policy)) {
 		case 3:
@@ -1170,25 +1150,6 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		case 2:
 		    err = otrl_auth_start_v23(&(context->auth), 2);
 		    send_or_error_auth(ops, opdata, err, context, us);
-		    break;
-		case 1:
-		    /* Get our private key */
-		    privkey = otrl_privkey_find(us, context->accountname,
-			    context->protocol);
-		    if (privkey == NULL) {
-			/* We've got no private key! */
-			if (ops->create_privkey) {
-			    ops->create_privkey(opdata, context->accountname,
-				    context->protocol);
-			    privkey = otrl_privkey_find(us,
-				    context->accountname, context->protocol);
-			}
-		    }
-		    if (privkey) {
-			err = otrl_auth_start_v1(&(context->auth), our_dh,
-				our_keyid, privkey);
-			send_or_error_auth(ops, opdata, err, context, us);
-		    }
 		    break;
 		default:
 		    /* Just ignore this message */
@@ -1261,42 +1222,6 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    if (err || haveauthmsg) {
 		send_or_error_auth(ops, opdata, err, context, us);
 		maybe_resend(&edata);
-	    }
-
-	    if (edata.ignore_message == -1) edata.ignore_message = 1;
-	    break;
-
-	case OTRL_MSGTYPE_V1_KEYEXCH:
-	    /* See if we should use an existing DH keypair, or generate
-	     * a fresh one. */
-	    if (context->msgstate == OTRL_MSGSTATE_ENCRYPTED) {
-		our_dh = &(context->context_priv->our_old_dh_key);
-		our_keyid = context->context_priv->our_keyid - 1;
-	    } else {
-		our_dh = NULL;
-		our_keyid = 0;
-	    }
-
-	    /* Get our private key */
-	    privkey = otrl_privkey_find(us, context->accountname,
-		    context->protocol);
-	    if (privkey == NULL) {
-		/* We've got no private key! */
-		if (ops->create_privkey) {
-		    ops->create_privkey(opdata, context->accountname,
-			    context->protocol);
-		    privkey = otrl_privkey_find(us, context->accountname,
-			    context->protocol);
-		}
-	    }
-	    if (privkey) {
-		err = otrl_auth_handle_v1_key_exchange(&(context->auth),
-			message, &haveauthmsg, privkey, our_dh, our_keyid,
-			go_encrypted, &edata);
-		if (err || haveauthmsg) {
-		    send_or_error_auth(ops, opdata, err, context, us);
-		    maybe_resend(&edata);
-		}
 	    }
 
 	    if (edata.ignore_message == -1) edata.ignore_message = 1;
@@ -1819,27 +1744,6 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    case 2:
 			err = otrl_auth_start_v23(&(context->auth), 2);
 			send_or_error_auth(ops, opdata, err, context, us);
-			break;
-		    case 1:
-			/* Get our private key */
-			privkey = otrl_privkey_find(us, context->accountname,
-				context->protocol);
-			if (privkey == NULL) {
-			    /* We've got no private key! */
-			    if (ops->create_privkey) {
-				ops->create_privkey(opdata,
-					context->accountname,
-					context->protocol);
-				privkey = otrl_privkey_find(us,
-					context->accountname,
-					context->protocol);
-			    }
-			}
-			if (privkey) {
-			    err = otrl_auth_start_v1(&(context->auth), NULL, 0,
-				    privkey);
-			    send_or_error_auth(ops, opdata, err, context, us);
-			}
 			break;
 		    default:
 			/* Don't start the AKE */

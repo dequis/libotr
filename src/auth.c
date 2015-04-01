@@ -346,7 +346,6 @@ gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
     switch(auth->authstate) {
 	case OTRL_AUTHSTATE_NONE:
 	case OTRL_AUTHSTATE_AWAITING_SIG:
-	case OTRL_AUTHSTATE_V1_SETUP:
 	    /* Store the incoming information */
 	    otrl_auth_clear(auth);
 	    auth->protocol_version = version;
@@ -872,7 +871,6 @@ gcry_error_t otrl_auth_handle_key(OtrlAuthInfo *auth, const char *keymsg,
 	    break;
 	case OTRL_AUTHSTATE_NONE:
 	case OTRL_AUTHSTATE_AWAITING_REVEALSIG:
-	case OTRL_AUTHSTATE_V1_SETUP:
 	    /* Ignore this message */
 	    *havemsgp = 0;
 	    break;
@@ -1046,7 +1044,6 @@ gcry_error_t otrl_auth_handle_revealsig(OtrlAuthInfo *auth,
 	case OTRL_AUTHSTATE_NONE:
 	case OTRL_AUTHSTATE_AWAITING_DHKEY:
 	case OTRL_AUTHSTATE_AWAITING_SIG:
-	case OTRL_AUTHSTATE_V1_SETUP:
 	    /* Ignore this message */
 	    *havemsgp = 0;
 	    free(buf);
@@ -1160,7 +1157,6 @@ gcry_error_t otrl_auth_handle_signature(OtrlAuthInfo *auth,
 	case OTRL_AUTHSTATE_NONE:
 	case OTRL_AUTHSTATE_AWAITING_DHKEY:
 	case OTRL_AUTHSTATE_AWAITING_REVEALSIG:
-	case OTRL_AUTHSTATE_V1_SETUP:
 	    /* Ignore this message */
 	    *havemsgp = 0;
 	    free(buf);
@@ -1177,264 +1173,6 @@ memerr:
     err = gcry_error(GPG_ERR_ENOMEM);
 err:
     free(buf);
-    return err;
-}
-
-/* Version 1 routines, for compatibility */
-
-/*
- * Create a verion 1 Key Exchange Message using the values in the given
- * auth, and store it in auth->lastauthmsg.  Set the Reply field to the
- * given value, and use the given privkey to sign the message.
- */
-static gcry_error_t create_v1_key_exchange_message(OtrlAuthInfo *auth,
-	unsigned char reply, OtrlPrivKey *privkey)
-{
-    gcry_error_t err = gcry_error(GPG_ERR_NO_ERROR);
-    const enum gcry_mpi_format format = GCRYMPI_FMT_USG;
-    unsigned char *buf = NULL, *bufp = NULL, *sigbuf = NULL;
-    size_t lenp, ourpublen, totallen, siglen;
-    unsigned char hashbuf[20];
-
-    if (privkey->pubkey_type != OTRL_PUBKEY_TYPE_DSA) {
-	return gpg_error(GPG_ERR_INV_VALUE);
-    }
-
-    /* How big is the DH public key? */
-    gcry_mpi_print(format, NULL, 0, &ourpublen, auth->our_dh.pub);
-
-    totallen = 3 + 1 + privkey->pubkey_datalen + 4 + 4 + ourpublen + 40;
-    buf = malloc(totallen);
-    if (buf == NULL) goto memerr;
-
-    bufp = buf;
-    lenp = totallen;
-
-    memmove(bufp, "\x00\x01\x0a", 3); /* header */
-    debug_data("Header", bufp, 3);
-    bufp += 3; lenp -= 3;
-
-    bufp[0] = reply;
-    debug_data("Reply", bufp, 1);
-    bufp += 1; lenp -= 1;
-
-    memmove(bufp, privkey->pubkey_data, privkey->pubkey_datalen);
-    debug_data("Pubkey", bufp, privkey->pubkey_datalen);
-    bufp += privkey->pubkey_datalen; lenp -= privkey->pubkey_datalen;
-
-    write_int(auth->our_keyid);
-    debug_int("Keyid", bufp-4);
-
-    write_mpi(auth->our_dh.pub, ourpublen, "D-H y");
-
-    /* Hash all the data written so far, and sign the hash */
-    gcry_md_hash_buffer(GCRY_MD_SHA1, hashbuf, buf, bufp - buf);
-
-    err = otrl_privkey_sign(&sigbuf, &siglen, privkey, hashbuf, 20);
-    if (err) goto err;
-
-    if (siglen != 40) goto invval;
-    memmove(bufp, sigbuf, 40);
-    debug_data("Signature", bufp, 40);
-    bufp += 40; lenp -= 40;
-    free(sigbuf);
-    sigbuf = NULL;
-
-    assert(lenp == 0);
-
-    free(auth->lastauthmsg);
-    auth->lastauthmsg = otrl_base64_otr_encode(buf, totallen);
-    if (auth->lastauthmsg == NULL) goto memerr;
-    free(buf);
-    buf = NULL;
-
-    return err;
-
-invval:
-    err = gcry_error(GPG_ERR_INV_VALUE);
-    goto err;
-memerr:
-    err = gcry_error(GPG_ERR_ENOMEM);
-err:
-    free(buf);
-    free(sigbuf);
-    return err;
-}
-
-/*
- * Start a fresh AKE (version 1) using the given OtrlAuthInfo.  If
- * our_dh is NULL, generate a fresh DH keypair to use.  Otherwise, use a
- * copy of the one passed (with the given keyid).  Use the given private
- * key to sign the message.  If no error is returned, the message to
- * transmit will be contained in auth->lastauthmsg.
- */
-gcry_error_t otrl_auth_start_v1(OtrlAuthInfo *auth, DH_keypair *our_dh,
-	unsigned int our_keyid, OtrlPrivKey *privkey)
-{
-    gcry_error_t err = gcry_error(GPG_ERR_NO_ERROR);
-
-    /* Clear out this OtrlAuthInfo and start over */
-    otrl_auth_clear(auth);
-    auth->initiated = 1;
-    auth->protocol_version = 1;
-
-    /* Import the given DH keypair, or else create a fresh one */
-    if (our_dh) {
-	otrl_dh_keypair_copy(&(auth->our_dh), our_dh);
-	auth->our_keyid = our_keyid;
-    } else {
-	otrl_dh_gen_keypair(DH1536_GROUP_ID, &(auth->our_dh));
-	auth->our_keyid = 1;
-    }
-
-    err = create_v1_key_exchange_message(auth, 0, privkey);
-    if (!err) {
-	auth->authstate = OTRL_AUTHSTATE_V1_SETUP;
-    }
-
-    return err;
-}
-
-/*
- * Handle an incoming v1 Key Exchange Message.  If no error is returned,
- * and *havemsgp is 1, the message to be sent will be left in
- * auth->lastauthmsg.  Use the given private authentication key to sign
- * messages.  Call the auth_secceeded callback if authentication is
- * successful.  If non-NULL, use a copy of the given D-H keypair, with
- * the given keyid.
- */
-gcry_error_t otrl_auth_handle_v1_key_exchange(OtrlAuthInfo *auth,
-	const char *keyexchmsg, int *havemsgp, OtrlPrivKey *privkey,
-	DH_keypair *our_dh, unsigned int our_keyid,
-	gcry_error_t (*auth_succeeded)(const OtrlAuthInfo *auth, void *asdata),
-	void *asdata)
-{
-    gcry_error_t err = gcry_error(GPG_ERR_NO_ERROR);
-    unsigned char *buf = NULL, *bufp = NULL;
-    unsigned char *fingerprintstart, *fingerprintend;
-    unsigned char fingerprintbuf[20], hashbuf[20];
-    gcry_mpi_t p, q, g, y, received_pub = NULL;
-    gcry_sexp_t pubs = NULL;
-    size_t buflen, lenp;
-    unsigned char received_reply;
-    unsigned int received_keyid;
-    int res;
-
-    *havemsgp = 0;
-
-    res = otrl_base64_otr_decode(keyexchmsg, &buf, &buflen);
-    if (res == -1) goto memerr;
-    if (res == -2) goto invval;
-
-    bufp = buf;
-    lenp = buflen;
-
-    /* Header */
-    require_len(3);
-    if (memcmp(bufp, "\x00\x01\x0a", 3)) goto invval;
-    bufp += 3; lenp -= 3;
-
-    /* Reply */
-    require_len(1);
-    received_reply = bufp[0];
-    bufp += 1; lenp -= 1;
-
-    /* Public Key */
-    fingerprintstart = bufp;
-    read_mpi(p);
-    read_mpi(q);
-    read_mpi(g);
-    read_mpi(y);
-    fingerprintend = bufp;
-    gcry_md_hash_buffer(GCRY_MD_SHA1, fingerprintbuf,
-	    fingerprintstart, fingerprintend-fingerprintstart);
-    gcry_sexp_build(&pubs, NULL,
-	"(public-key (dsa (p %m)(q %m)(g %m)(y %m)))", p, q, g, y);
-    gcry_mpi_release(p);
-    gcry_mpi_release(q);
-    gcry_mpi_release(g);
-    gcry_mpi_release(y);
-
-    /* keyid */
-    read_int(received_keyid);
-    if (received_keyid == 0) goto invval;
-
-    /* D-H pubkey */
-    read_mpi(received_pub);
-
-    /* Verify the signature */
-    if (lenp != 40) goto invval;
-    gcry_md_hash_buffer(GCRY_MD_SHA1, hashbuf, buf, bufp - buf);
-    err = otrl_privkey_verify(bufp, lenp, OTRL_PUBKEY_TYPE_DSA,
-	    pubs, hashbuf, 20);
-    if (err) goto err;
-    gcry_sexp_release(pubs);
-    pubs = NULL;
-    free(buf);
-    buf = NULL;
-
-    if (auth->authstate != OTRL_AUTHSTATE_V1_SETUP && received_reply == 0x01) {
-	/* They're replying to something we never sent.  We must be
-	 * logged in more than once; ignore the message. */
-	err = gpg_error(GPG_ERR_NO_ERROR);
-	goto err;
-    }
-
-    if (auth->authstate != OTRL_AUTHSTATE_V1_SETUP) {
-	/* Clear the auth and start over */
-	otrl_auth_clear(auth);
-    }
-
-    /* Everything checked out */
-    auth->their_keyid = received_keyid;
-    gcry_mpi_release(auth->their_pub);
-    auth->their_pub = received_pub;
-    received_pub = NULL;
-    memmove(auth->their_fingerprint, fingerprintbuf, 20);
-
-    if (received_reply == 0x01) {
-	/* Don't send a reply to this. */
-	*havemsgp = 0;
-    } else {
-	/* Import the given DH keypair, or else create a fresh one */
-	if (our_dh) {
-	    otrl_dh_keypair_copy(&(auth->our_dh), our_dh);
-	    auth->our_keyid = our_keyid;
-	} else if (auth->our_keyid == 0) {
-	    otrl_dh_gen_keypair(DH1536_GROUP_ID, &(auth->our_dh));
-	    auth->our_keyid = 1;
-	}
-
-	/* Reply with our own Key Exchange Message */
-	err = create_v1_key_exchange_message(auth, 1, privkey);
-	if (err) goto err;
-	*havemsgp = 1;
-    }
-
-    /* Compute the session id */
-    err = otrl_dh_compute_v1_session_id(&(auth->our_dh),
-	    auth->their_pub, auth->secure_session_id,
-	    &(auth->secure_session_id_len),
-	    &(auth->session_id_half));
-    if (err) goto err;
-
-    /* We've completed our end of the authentication */
-    auth->protocol_version = 1;
-    if (auth_succeeded) err = auth_succeeded(auth, asdata);
-    auth->our_keyid = 0;
-    auth->authstate = OTRL_AUTHSTATE_NONE;
-
-    return err;
-
-invval:
-    err = gcry_error(GPG_ERR_INV_VALUE);
-    goto err;
-memerr:
-    err = gcry_error(GPG_ERR_ENOMEM);
-err:
-    free(buf);
-    gcry_sexp_release(pubs);
-    gcry_mpi_release(received_pub);
     return err;
 }
 

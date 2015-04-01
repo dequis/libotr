@@ -29,7 +29,6 @@
  * other side speaks OTR, and try to establish a connection. */
 #define OTRL_MESSAGE_TAG_BASE " \t  \t\t\t\t \t \t \t  "
 /* The following must each be of length 8 */
-#define OTRL_MESSAGE_TAG_V1 " \t \t  \t "
 #define OTRL_MESSAGE_TAG_V2 "  \t\t  \t "
 #define OTRL_MESSAGE_TAG_V3 "  \t\t  \t\t"
 
@@ -38,7 +37,6 @@
 
 typedef unsigned int OtrlPolicy;
 
-#define OTRL_POLICY_ALLOW_V1			0x01
 #define OTRL_POLICY_ALLOW_V2			0x02
 #define OTRL_POLICY_ALLOW_V3			0x04
 #define OTRL_POLICY_REQUIRE_ENCRYPTION		0x08
@@ -46,14 +44,12 @@ typedef unsigned int OtrlPolicy;
 #define OTRL_POLICY_WHITESPACE_START_AKE	0x20
 #define OTRL_POLICY_ERROR_START_AKE		0x40
 
-#define OTRL_POLICY_VERSION_MASK (OTRL_POLICY_ALLOW_V1 | OTRL_POLICY_ALLOW_V2 |\
-	OTRL_POLICY_ALLOW_V3)
+#define OTRL_POLICY_VERSION_MASK (OTRL_POLICY_ALLOW_V2 | OTRL_POLICY_ALLOW_V3)
 
 /* Length of OTR message headers */
 #define OTRL_HEADER_LEN		3
 #define OTRL_B64_HEADER_LEN	4
 
-/* Analogous to v1 policies */
 #define OTRL_POLICY_NEVER			0x00
 #define OTRL_POLICY_OPPORTUNISTIC \
 	    ( OTRL_POLICY_ALLOW_V2 | \
