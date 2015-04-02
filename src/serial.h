@@ -21,31 +21,6 @@
 #ifndef __SERIAL_H__
 #define __SERIAL_H__
 
-#undef DEBUG
-
-#ifdef DEBUG
-
-#include <stdio.h>
-
-#define debug_data(t,b,l) do { const unsigned char *data = (b); size_t i; \
-	fprintf(stderr, "%s: ", (t)); \
-	for(i=0;i<(l);++i) { \
-	    fprintf(stderr, "%02x", data[i]); \
-	} \
-	fprintf(stderr, "\n"); \
-    } while(0)
-
-#define debug_int(t,b) do { const unsigned char *data = (b); \
-	unsigned int v = \
-	    (((unsigned int)data[0]) << 24) | (data[1] << 16) | (data[2] << 8) | data[3]; \
-	fprintf(stderr, "%s: %u (0x%x)\n", (t), v, v); \
-    } while(0)
-
-#else
-#define debug_data(t,b,l)
-#define debug_int(t,b)
-#endif
-
 #define write_int(x) do { \
 	bufp[0] = ((x) >> 24) & 0xff; \
 	bufp[1] = ((x) >> 16) & 0xff; \
@@ -57,7 +32,6 @@
 #define write_mpi(x,nx,dx) do { \
 	write_int(nx); \
 	gcry_mpi_print(format, bufp, lenp, NULL, (x)); \
-	debug_data((dx), bufp, (nx)); \
 	bufp += (nx); lenp -= (nx); \
     } while(0)
 
@@ -88,7 +62,6 @@
 	bufp[0] = 0x00; \
         bufp[1] = version & 0xff; \
         bufp[2] = msgtype; \
-        debug_data("Header", bufp, 3); \
         bufp += 3; lenp -= 3; \
     } while(0)
 

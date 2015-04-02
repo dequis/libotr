@@ -39,10 +39,6 @@
 #include "tlv.h"
 #include "serial.h"
 
-#if OTRL_DEBUGGING
-extern const char *OTRL_DEBUGGING_DEBUGSTR;
-#endif
-
 /* For now, we need to know the API version the client is using so that
  * we don't use any UI callbacks it hasn't set. */
 unsigned int otrl_api_version = 0;
@@ -79,12 +75,6 @@ gcry_error_t otrl_init(unsigned int ver_major, unsigned int ver_minor,
 
     /* Initialize the SM module */
     otrl_sm_init();
-
-#if OTRL_DEBUGGING
-    /* Inform the user that debugging is available */
-    fprintf(stderr, "\nlibotr debugging is available.  Type %s in a message\n"
-	    "  to see debug info.\n\n", OTRL_DEBUGGING_DEBUGSTR);
-#endif
 
     return gcry_error(GPG_ERR_NO_ERROR);
 }
@@ -529,15 +519,12 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
 	memmove(bufp, "\x00\x03\x03", 3);  /* header */
     }
 
-    debug_data("Header", bufp, 3);
     bufp += 3; lenp -= 3;
 
     if (version == 3) {
 	/* v3 instance tags */
 	write_int(context->our_instance);
-	debug_int("Sender instag", bufp-4);
 	write_int(context->their_instance);
-	debug_int("Recipient instag", bufp-4);
     }
 
     if (version == 2 || version == 3) {
@@ -546,19 +533,15 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     }
 
     write_int(context->context_priv->our_keyid-1); /* sender keyid */
-    debug_int("Sender keyid", bufp-4);
     write_int(context->context_priv->their_keyid); /* recipient keyid */
-    debug_int("Recipient keyid", bufp-4);
 
     write_mpi(context->context_priv->our_dh_key.pub, pubkeylen, "Y");  /* Y */
 
     otrl_dh_incctr(sess->sendctr);
     memmove(bufp, sess->sendctr, 8);      /* Counter (top 8 bytes only) */
-    debug_data("Counter", bufp, 8);
     bufp += 8; lenp -= 8;
 
     write_int(msglen);                        /* length of encrypted data */
-    debug_int("Msg len", bufp-4);
 
     err = gcry_cipher_reset(sess->sendenc);
     if (err) goto err;
@@ -566,23 +549,19 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     if (err) goto err;
     err = gcry_cipher_encrypt(sess->sendenc, bufp, msglen, msgbuf, msglen);
     if (err) goto err;                              /* encrypted data */
-    debug_data("Enc data", bufp, msglen);
     bufp += msglen;
     lenp -= msglen;
 
     gcry_md_reset(sess->sendmac);
     gcry_md_write(sess->sendmac, buf, bufp-buf);
     memmove(bufp, gcry_md_read(sess->sendmac, GCRY_MD_SHA1), 20);
-    debug_data("MAC", bufp, 20);
     bufp += 20;                                         /* MAC */
     lenp -= 20;
 
     write_int(reveallen);                     /* length of revealed MAC keys */
-    debug_int("Revealed MAC length", bufp-4);
 
     if (reveallen > 0) {
 	memmove(bufp, context->context_priv->saved_mac_keys, reveallen);
-	debug_data("Revealed MAC data", bufp, reveallen);
 	bufp += reveallen; lenp -= reveallen;
 	free(context->context_priv->saved_mac_keys);
 	context->context_priv->saved_mac_keys = NULL;

@@ -33,68 +33,14 @@
 #include "context.h"
 #include "mem.h"
 
-#if OTRL_DEBUGGING
-#include <stdio.h>
-
-/* Dump the contents of an OtrlAuthInfo to the FILE *f. */
-void otrl_auth_dump(FILE *f, const OtrlAuthInfo *auth)
-{
-    int i;
-
-    fprintf(f, "  Auth info %p:\n", auth);
-    fprintf(f, "    State: %d (%s)\n", auth->authstate,
-	auth->authstate == OTRL_AUTHSTATE_NONE ? "NONE" :
-	auth->authstate == OTRL_AUTHSTATE_AWAITING_DHKEY ? "AWAITING_DHKEY" :
-	auth->authstate == OTRL_AUTHSTATE_AWAITING_REVEALSIG ?
-	    "AWAITING_REVEALSIG" :
-	auth->authstate == OTRL_AUTHSTATE_AWAITING_SIG ? "AWAITING_SIG" :
-	auth->authstate == OTRL_AUTHSTATE_V1_SETUP ? "V1_SETUP" :
-	"INVALID");
-    fprintf(f, "    Context: %p\n", auth->context);
-    fprintf(f, "    Our keyid:   %u\n", auth->our_keyid);
-    fprintf(f, "    Their keyid: %u\n", auth->their_keyid);
-    fprintf(f, "    Their fingerprint: ");
-    for (i=0;i<20;++i) {
-	fprintf(f, "%02x", auth->their_fingerprint[i]);
-    }
-    fprintf(f, "\n    Initiated = %d\n", auth->initiated);
-    fprintf(f, "\n    Proto version = %d\n", auth->protocol_version);
-    fprintf(f, "\n    Lastauthmsg = %s\n",
-	auth->lastauthmsg ? auth->lastauthmsg : "(nil)");
-    fprintf(f, "\n    Commit sent time = %ld\n",
-	(long) auth->commit_sent_time);
-}
-
-#endif
-
 /*
  * Initialize the fields of an OtrlAuthInfo (already allocated).
  */
 void otrl_auth_new(struct context *context)
 {
     OtrlAuthInfo *auth = &(context->auth);
+    memset(auth, 0, sizeof(OtrlAuthInfo));
     auth->authstate = OTRL_AUTHSTATE_NONE;
-    otrl_dh_keypair_init(&(auth->our_dh));
-    auth->our_keyid = 0;
-    auth->encgx = NULL;
-    auth->encgx_len = 0;
-    memset(auth->r, 0, 16);
-    memset(auth->hashgx, 0, 32);
-    auth->their_pub = NULL;
-    auth->their_keyid = 0;
-    auth->enc_c = NULL;
-    auth->enc_cp = NULL;
-    auth->mac_m1 = NULL;
-    auth->mac_m1p = NULL;
-    auth->mac_m2 = NULL;
-    auth->mac_m2p = NULL;
-    memset(auth->their_fingerprint, 0, 20);
-    auth->initiated = 0;
-    auth->protocol_version = 0;
-    memset(auth->secure_session_id, 0, 20);
-    auth->secure_session_id_len = 0;
-    auth->lastauthmsg = NULL;
-    auth->commit_sent_time = 0;
     auth->context = context;
 }
 
@@ -103,37 +49,20 @@ void otrl_auth_new(struct context *context)
  */
 void otrl_auth_clear(OtrlAuthInfo *auth)
 {
-    auth->authstate = OTRL_AUTHSTATE_NONE;
-    otrl_dh_keypair_free(&(auth->our_dh));
-    auth->our_keyid = 0;
+    struct context *context = auth->context;
     free(auth->encgx);
-    auth->encgx = NULL;
-    auth->encgx_len = 0;
-    memset(auth->r, 0, 16);
-    memset(auth->hashgx, 0, 32);
-    gcry_mpi_release(auth->their_pub);
-    auth->their_pub = NULL;
-    auth->their_keyid = 0;
-    gcry_cipher_close(auth->enc_c);
-    gcry_cipher_close(auth->enc_cp);
+    free(auth->lastauthmsg);
     gcry_md_close(auth->mac_m1);
     gcry_md_close(auth->mac_m1p);
     gcry_md_close(auth->mac_m2);
     gcry_md_close(auth->mac_m2p);
-    auth->enc_c = NULL;
-    auth->enc_cp = NULL;
-    auth->mac_m1 = NULL;
-    auth->mac_m1p = NULL;
-    auth->mac_m2 = NULL;
-    auth->mac_m2p = NULL;
-    memset(auth->their_fingerprint, 0, 20);
-    auth->initiated = 0;
-    auth->protocol_version = 0;
-    memset(auth->secure_session_id, 0, 20);
-    auth->secure_session_id_len = 0;
-    free(auth->lastauthmsg);
-    auth->lastauthmsg = NULL;
-    auth->commit_sent_time = 0;
+    gcry_mpi_release(auth->their_pub);
+    gcry_cipher_close(auth->enc_c);
+    gcry_cipher_close(auth->enc_cp);
+    otrl_dh_keypair_free(&(auth->our_dh));
+    memset(auth, 0, sizeof(OtrlAuthInfo));
+    auth->authstate = OTRL_AUTHSTATE_NONE;
+    auth->context = context;
 }
 
 /*
@@ -208,23 +137,17 @@ gcry_error_t otrl_auth_start_v23(OtrlAuthInfo *auth, int version)
     if (auth->protocol_version == 3) {
 	/* instance tags */
 	write_int(auth->context->our_instance);
-	debug_int("Sender instag", bufp-4);
 	write_int(auth->context->their_instance);
-	debug_int("Recipient instag", bufp-4);
     }
 
     /* Encrypted g^x */
     write_int(auth->encgx_len);
-    debug_int("Enc gx len", bufp-4);
     memmove(bufp, auth->encgx, auth->encgx_len);
-    debug_data("Enc gx", bufp, auth->encgx_len);
     bufp += auth->encgx_len; lenp -= auth->encgx_len;
 
     /* Hashed g^x */
     write_int(32);
-    debug_int("hashgx len", bufp-4);
     memmove(bufp, auth->hashgx, 32);
-    debug_data("hashgx", bufp, 32);
     bufp += 32; lenp -= 32;
 
     assert(lenp == 0);
@@ -268,9 +191,7 @@ static gcry_error_t create_key_message(OtrlAuthInfo *auth)
     if (auth->protocol_version == 3) {
 	/* instance tags */
 	write_int(auth->context->our_instance);
-	debug_int("Sender instag", bufp-4);
 	write_int(auth->context->their_instance);
-	debug_int("Recipient instag", bufp-4);
     }
 
     /* g^y */
@@ -462,10 +383,8 @@ static gcry_error_t calculate_pubkey_auth(unsigned char **authbufp,
     bufp[1] = (privkey->pubkey_type) & 0xff;
     bufp += 2; lenp -= 2;
     memmove(bufp, privkey->pubkey_data, privkey->pubkey_datalen);
-    debug_data("Pubkey", bufp, privkey->pubkey_datalen);
     bufp += privkey->pubkey_datalen; lenp -= privkey->pubkey_datalen;
     write_int(keyid);
-    debug_int("Keyid", bufp-4);
 
     assert(lenp == 0);
 
@@ -493,12 +412,9 @@ static gcry_error_t calculate_pubkey_auth(unsigned char **authbufp,
     bufp[1] = (privkey->pubkey_type) & 0xff;
     bufp += 2; lenp -= 2;
     memmove(bufp, privkey->pubkey_data, privkey->pubkey_datalen);
-    debug_data("Pubkey", bufp, privkey->pubkey_datalen);
     bufp += privkey->pubkey_datalen; lenp -= privkey->pubkey_datalen;
     write_int(keyid);
-    debug_int("Keyid", bufp-4);
     memmove(bufp, sigbuf, siglen);
-    debug_data("Signature", bufp, siglen);
     bufp += siglen; lenp -= siglen;
     free(sigbuf);
     sigbuf = NULL;
@@ -600,11 +516,9 @@ static gcry_error_t check_pubkey_auth(unsigned char fingerprintbufp[20],
     bufp[1] = pubkey_type & 0xff;
     bufp += 2; lenp -= 2;
     memmove(bufp, fingerprintstart, fingerprintend - fingerprintstart);
-    debug_data("Pubkey", bufp, fingerprintend - fingerprintstart);
     bufp += fingerprintend - fingerprintstart;
     lenp -= fingerprintend - fingerprintstart;
     write_int(received_keyid);
-    debug_int("Keyid", bufp-4);
 
     assert(lenp == 0);
 
@@ -670,22 +584,18 @@ static gcry_error_t create_revealsig_message(OtrlAuthInfo *auth,
     if (auth->protocol_version == 3) {
 	/* instance tags */
 	write_int(auth->context->our_instance);
-	debug_int("Sender instag", bufp-4);
 	write_int(auth->context->their_instance);
-	debug_int("Recipient instag", bufp-4);
     }
 
     /* r */
     write_int(16);
     memmove(bufp, auth->r, 16);
-    debug_data("r", bufp, 16);
     bufp += 16; lenp -= 16;
 
     /* Encrypted authenticator */
     startmac = bufp;
     write_int(authlen);
     memmove(bufp, authbuf, authlen);
-    debug_data("auth", bufp, authlen);
     bufp += authlen; lenp -= authlen;
     free(authbuf);
     authbuf = NULL;
@@ -694,7 +604,6 @@ static gcry_error_t create_revealsig_message(OtrlAuthInfo *auth,
     gcry_md_reset(auth->mac_m2);
     gcry_md_write(auth->mac_m2, startmac, bufp - startmac);
     memmove(bufp, gcry_md_read(auth->mac_m2, GCRY_MD_SHA256), 20);
-    debug_data("MAC", bufp, 20);
     bufp += 20; lenp -= 20;
 
     assert(lenp == 0);
@@ -749,16 +658,13 @@ static gcry_error_t create_signature_message(OtrlAuthInfo *auth,
     if (auth->protocol_version == 3) {
 	/* instance tags */
 	write_int(auth->context->our_instance);
-	debug_int("Sender instag", bufp-4);
 	write_int(auth->context->their_instance);
-	debug_int("Recipient instag", bufp-4);
     }
 
     /* Encrypted authenticator */
     startmac = bufp;
     write_int(authlen);
     memmove(bufp, authbuf, authlen);
-    debug_data("auth", bufp, authlen);
     bufp += authlen; lenp -= authlen;
     free(authbuf);
     authbuf = NULL;
@@ -767,7 +673,6 @@ static gcry_error_t create_signature_message(OtrlAuthInfo *auth,
     gcry_md_reset(auth->mac_m2p);
     gcry_md_write(auth->mac_m2p, startmac, bufp - startmac);
     memmove(bufp, gcry_md_read(auth->mac_m2p, GCRY_MD_SHA256), 20);
-    debug_data("MAC", bufp, 20);
     bufp += 20; lenp -= 20;
 
     assert(lenp == 0);
@@ -1206,106 +1111,3 @@ void otrl_auth_copy_on_key(OtrlAuthInfo *m_auth, OtrlAuthInfo *auth)
 	    break;
     }
 }
-
-#ifdef OTRL_TESTING_AUTH
-#include "mem.h"
-#include "privkey.h"
-
-#define CHECK_ERR if (err) { printf("Error: %s\n", gcry_strerror(err)); \
-			return 1; }
-
-static gcry_error_t starting(const OtrlAuthInfo *auth, void *asdata)
-{
-    char *name = asdata;
-
-    fprintf(stderr, "\nStarting ENCRYPTED mode for %s (v%d).\n",
-	    name, auth->protocol_version);
-
-    fprintf(stderr, "\nour_dh (%d):", auth->our_keyid);
-    gcry_mpi_dump(auth->our_dh.pub);
-    fprintf(stderr, "\ntheir_pub (%d):", auth->their_keyid);
-    gcry_mpi_dump(auth->their_pub);
-
-    debug_data("\nTheir fingerprint", auth->their_fingerprint, 20);
-    debug_data("\nSecure session id", auth->secure_session_id,
-	    auth->secure_session_id_len);
-    fprintf(stderr, "Sessionid half: %d\n\n", auth->session_id_half);
-
-    return gpg_error(GPG_ERR_NO_ERROR);
-}
-
-int main(int argc, char **argv)
-{
-    OtrlAuthInfo alice, bob;
-    gcry_error_t err;
-    int havemsg;
-    OtrlUserState us;
-    OtrlPrivKey *alicepriv, *bobpriv;
-
-    otrl_mem_init();
-    otrl_dh_init();
-    otrl_auth_new(&alice);
-    otrl_auth_new(&bob);
-
-    us = otrl_userstate_create();
-    otrl_privkey_read(us, "/home/iang/.gaim/otr.private_key");
-    alicepriv = otrl_privkey_find(us, "oneeyedian", "prpl-oscar");
-    bobpriv = otrl_privkey_find(us, "otr4ian", "prpl-oscar");
-
-    printf("\n\n  ***** V2 *****\n\n");
-
-    err = otrl_auth_start_v23(&bob, NULL, 0);
-    CHECK_ERR
-    printf("\nBob: %d\n%s\n\n", strlen(bob.lastauthmsg), bob.lastauthmsg);
-    err = otrl_auth_handle_commit(&alice, bob.lastauthmsg, NULL, 0);
-    CHECK_ERR
-    printf("\nAlice: %d\n%s\n\n", strlen(alice.lastauthmsg), alice.lastauthmsg);
-    err = otrl_auth_handle_key(&bob, alice.lastauthmsg, &havemsg, bobpriv);
-    CHECK_ERR
-    if (havemsg) {
-	printf("\nBob: %d\n%s\n\n", strlen(bob.lastauthmsg), bob.lastauthmsg);
-    } else {
-	printf("\nIGNORE\n\n");
-    }
-    err = otrl_auth_handle_revealsig(&alice, bob.lastauthmsg, &havemsg,
-	    alicepriv, starting, "Alice");
-    CHECK_ERR
-    if (havemsg) {
-	printf("\nAlice: %d\n%s\n\n", strlen(alice.lastauthmsg),
-		alice.lastauthmsg);
-    } else {
-	printf("\nIGNORE\n\n");
-    }
-    err = otrl_auth_handle_signature(&bob, alice.lastauthmsg, &havemsg,
-	    starting, "Bob");
-    CHECK_ERR
-
-    printf("\n\n  ***** V1 *****\n\n");
-
-    err = otrl_auth_start_v1(&bob, NULL, 0, bobpriv);
-    CHECK_ERR
-    printf("\nBob: %d\n%s\n\n", strlen(bob.lastauthmsg), bob.lastauthmsg);
-    err = otrl_auth_handle_v1_key_exchange(&alice, bob.lastauthmsg,
-	    &havemsg, alicepriv, NULL, 0, starting, "Alice");
-    CHECK_ERR
-    if (havemsg) {
-	printf("\nAlice: %d\n%s\n\n", strlen(alice.lastauthmsg),
-		alice.lastauthmsg);
-    } else {
-	printf("\nIGNORE\n\n");
-    }
-    err = otrl_auth_handle_v1_key_exchange(&bob, alice.lastauthmsg,
-	    &havemsg, bobpriv, NULL, 0, starting, "Bob");
-    CHECK_ERR
-    if (havemsg) {
-	printf("\nBob: %d\n%s\n\n", strlen(bob.lastauthmsg), bob.lastauthmsg);
-    } else {
-	printf("\nIGNORE\n\n");
-    }
-
-    otrl_userstate_free(us);
-    otrl_auth_clear(&alice);
-    otrl_auth_clear(&bob);
-    return 0;
-}
-#endif
