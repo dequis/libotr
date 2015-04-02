@@ -65,9 +65,7 @@ void otrl_dh_init(void)
  */
 void otrl_dh_keypair_init(DH_keypair *kp)
 {
-    kp->groupid = 0;
-    kp->priv = NULL;
-    kp->pub = NULL;
+    memset(kp, 0, sizeof(DH_keypair));
 }
 
 /*
@@ -88,8 +86,7 @@ void otrl_dh_keypair_free(DH_keypair *kp)
 {
     gcry_mpi_release(kp->priv);
     gcry_mpi_release(kp->pub);
-    kp->priv = NULL;
-    kp->pub = NULL;
+    memset(kp, 0, sizeof(DH_keypair));
 }
 
 /*
@@ -375,17 +372,7 @@ void otrl_dh_session_free(DH_sesskeys *sess)
  */
 void otrl_dh_session_blank(DH_sesskeys *sess)
 {
-    sess->sendenc = NULL;
-    sess->sendmac = NULL;
-    sess->rcvenc = NULL;
-    sess->rcvmac = NULL;
-    memset(sess->sendctr, 0, 16);
-    memset(sess->rcvctr, 0, 16);
-    memset(sess->sendmackey, 0, 20);
-    memset(sess->rcvmackey, 0, 20);
-    sess->sendmacused = 0;
-    sess->rcvmacused = 0;
-    memset(sess->extrakey, 0, OTRL_EXTRAKEY_BYTES);
+    memset(sess, 0, sizeof(DH_sesskeys));
 }
 
 /* Increment the top half of a counter block */
