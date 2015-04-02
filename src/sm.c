@@ -263,6 +263,9 @@ static gcry_error_t otrl_sm_hash(gcry_mpi_t* hash, int version,
     }
 
     input = malloc(totalsize);
+    if (!input) {
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
     input[0] = (unsigned char)version;
     input[1] = (unsigned char)((sizea >> 24) & 0xFF);
     input[2] = (unsigned char)((sizea >> 16) & 0xFF);
