@@ -57,26 +57,12 @@ static ConnContext * new_context(const char * user, const char * accountname,
     otrl_sm_state_new(smstate);
     context->smstate = smstate;
 
-    context->our_instance = 0;
     context->their_instance = OTRL_INSTAG_MASTER;
-    context->fingerprint_root.fingerprint = NULL;
     context->fingerprint_root.context = context;
-    context->fingerprint_root.next = NULL;
-    context->fingerprint_root.tous = NULL;
-    context->active_fingerprint = NULL;
-    memset(context->sessionid, 0, 20);
-    context->sessionid_len = 0;
-    context->protocol_version = 0;
     context->otr_offer = OFFER_NOT;
-    context->app_data = NULL;
-    context->app_data_free = NULL;
     context->context_priv = otrl_context_priv_new();
     assert(context->context_priv != NULL);
-    context->next = NULL;
     context->m_context = context;
-    context->recent_rcvd_child = NULL;
-    context->recent_sent_child = NULL;
-    context->recent_child = NULL;
 
     return context;
 }
