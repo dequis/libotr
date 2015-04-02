@@ -206,12 +206,11 @@ void otrl_sm_state_free(OtrlSMState *smst)
  */
 void otrl_sm_msg_free(gcry_mpi_t **message, int msglen)
 {
-    gcry_mpi_t *msg = *message;
     int i;
     for (i=0; i<msglen; i++) {
-	gcry_mpi_release(msg[i]);
+	gcry_mpi_release((*message)[i]);
     }
-    free(msg);
+    free(*message);
     *message = NULL;
 }
 
