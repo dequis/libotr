@@ -35,14 +35,7 @@
  * OtrlUserState. */
 OtrlUserState otrl_userstate_create(void)
 {
-    OtrlUserState us = malloc(sizeof(struct s_OtrlUserState));
-    if (!us) return NULL;
-    us->context_root = NULL;
-    us->privkey_root = NULL;
-    us->instag_root = NULL;
-    us->pending_root = NULL;
-    us->timer_running = 0;
-    return us;
+    return calloc(1, sizeof(struct s_OtrlUserState));
 }
 
 /* Free a OtrlUserState.  If you have a timer running for this userstate,
