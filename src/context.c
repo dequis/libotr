@@ -47,7 +47,11 @@ static ConnContext * new_context(const char * user, const char * accountname,
     otrl_auth_new(context);
 
     smstate = malloc(sizeof(OtrlSMState));
-    assert(smstate != NULL);
+    if (!smstate) {
+	free(context);
+	return NULL;
+    }
+
     otrl_sm_state_new(smstate);
     context->smstate = smstate;
 
@@ -294,9 +298,14 @@ Fingerprint *otrl_context_find_fingerprint(ConnContext *context,
     if (add_if_missing) {
 	if (addedp) *addedp = 1;
 	f = malloc(sizeof(*f));
-	assert(f != NULL);
+	if (!f) {
+	    return NULL;
+	}
 	f->fingerprint = malloc(20);
-	assert(f->fingerprint != NULL);
+	if (!f->fingerprint) {
+	    free(f);
+	    return NULL;
+	}
 	memmove(f->fingerprint, fingerprint, 20);
 	f->context = context;
 	f->trust = NULL;
