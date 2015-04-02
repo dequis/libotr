@@ -20,7 +20,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #include "tlv.h"
 
@@ -29,11 +28,16 @@ OtrlTLV *otrl_tlv_new(unsigned short type, unsigned short len,
 	const unsigned char *data)
 {
     OtrlTLV *tlv = malloc(sizeof(OtrlTLV));
-    assert(tlv != NULL);
+    if (!tlv) {
+	return NULL;
+    }
     tlv->type = type;
     tlv->len = len;
-    tlv->data = malloc(len + 1);
-    assert(tlv->data != NULL);
+    tlv->data = malloc(len + 1); // +1 for the terminal zero
+    if (!tlv->data) {
+	free(tlv);
+	return NULL;
+    }
     memmove(tlv->data, data, len);
     tlv->data[tlv->len] = '\0';
     tlv->next = NULL;
