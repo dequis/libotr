@@ -36,8 +36,10 @@ static ConnContext * new_context(const char * user, const char * accountname,
     ConnContext * context;
     OtrlSMState *smstate;
 
-    context = malloc(sizeof(ConnContext));
-    assert(context != NULL);
+    context = calloc(1, sizeof(ConnContext));
+    if(!context) {
+        return NULL;
+    }
 
     context->username = strdup(user);
     context->accountname = strdup(accountname);
