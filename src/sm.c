@@ -33,7 +33,7 @@
 
 
 /* The modulus p */
-static const char* SM_MODULUS_S = "0x"
+static const unsigned char* SM_MODULUS_S = (const unsigned char*) "0x"
     "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
     "29024E088A67CC74020BBEA63B139B22514A08798E3404DD"
     "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"
@@ -43,7 +43,7 @@ static const char* SM_MODULUS_S = "0x"
     "83655D23DCA3AD961C62F356208552BB9ED529077096966D"
     "670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF";
 /* The order of the group q = (p-1)/2 */
-static const char* SM_ORDER_S = "0x"
+static const unsigned char* SM_ORDER_S = (const unsigned char*) "0x"
     "7FFFFFFFFFFFFFFFE487ED5110B4611A62633145C06E0E68"
     "948127044533E63A0105DF531D89CD9128A5043CC71A026E"
     "F7CA8CD9E69D218D98158536F92F8A1BA7F09AB6B6A8E122"
@@ -52,7 +52,7 @@ static const char* SM_ORDER_S = "0x"
     "E1003E5C50B1DF82CC6D241B0E2AE9CD348B1FD47E9267AF"
     "C1B2AE91EE51D6CB0E3179AB1042A95DCF6A9483B84B4B36"
     "B3861AA7255E4C0278BA36046511B993FFFFFFFFFFFFFFFF";
-static const char *SM_GENERATOR_S = "0x02";
+static const unsigned char *SM_GENERATOR_S = (const unsigned char*) "0x02";
 static const int SM_MOD_LEN_BITS = 1536;
 static const int SM_MOD_LEN_BYTES = 192;
 
@@ -68,12 +68,9 @@ static gcry_mpi_t SM_MODULUS_MINUS_2 = NULL;
 void otrl_sm_init(void)
 {
     gcry_check_version(NULL);
-    gcry_mpi_scan(&SM_MODULUS, GCRYMPI_FMT_HEX,
-	(const unsigned char *)SM_MODULUS_S, 0, NULL);
-    gcry_mpi_scan(&SM_ORDER, GCRYMPI_FMT_HEX,
-	(const unsigned char *)SM_ORDER_S, 0, NULL);
-    gcry_mpi_scan(&SM_GENERATOR, GCRYMPI_FMT_HEX,
-	(const unsigned char *)SM_GENERATOR_S, 0, NULL);
+    gcry_mpi_scan(&SM_MODULUS, GCRYMPI_FMT_HEX, SM_MODULUS_S, 0, NULL);
+    gcry_mpi_scan(&SM_ORDER, GCRYMPI_FMT_HEX, SM_ORDER_S, 0, NULL);
+    gcry_mpi_scan(&SM_GENERATOR, GCRYMPI_FMT_HEX, SM_GENERATOR_S, 0, NULL);
     SM_MODULUS_MINUS_2 = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_sub_ui(SM_MODULUS_MINUS_2, SM_MODULUS, 2);
 }
