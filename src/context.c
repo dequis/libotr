@@ -61,7 +61,13 @@ static ConnContext * new_context(const char * user, const char * accountname,
     context->fingerprint_root.context = context;
     context->otr_offer = OFFER_NOT;
     context->context_priv = otrl_context_priv_new();
-    assert(context->context_priv != NULL);
+
+    if (!context->context_priv) {
+	free(context);
+	free(smstate);
+	return NULL;
+    }
+
     context->m_context = context;
 
     return context;
