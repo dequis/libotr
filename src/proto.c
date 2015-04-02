@@ -96,7 +96,8 @@ static gcry_error_t reveal_macs(ConnContext *context,
     unsigned char *newmacs;
 
     /* Is there anything to do? */
-    if (numnew == 0) return gcry_error(GPG_ERR_NO_ERROR);
+    if (numnew == 0)
+		return gcry_error(GPG_ERR_NO_ERROR);
 
     newnumsaved = context->context_priv->numsavedkeys + numnew;
     newmacs = realloc(context->context_priv->saved_mac_keys,
