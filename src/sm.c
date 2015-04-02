@@ -80,19 +80,9 @@ void otrl_sm_init(void)
  */
 void otrl_sm_state_new(OtrlSMState *smst)
 {
-    smst->secret = NULL;
-    smst->x2 = NULL;
-    smst->x3 = NULL;
-    smst->g1 = NULL;
-    smst->g2 = NULL;
-    smst->g3 = NULL;
-    smst->g3o = NULL;
-    smst->p = NULL;
-    smst->q = NULL;
-    smst->pab = NULL;
-    smst->qab = NULL;
+    memset(smst, 0, sizeof(OtrlSMState));
+
     smst->nextExpected = OTRL_SMP_EXPECT1;
-    smst->received_question = 0;
     smst->sm_prog_state = OTRL_SMP_PROG_OK;
 }
 
@@ -103,9 +93,9 @@ void otrl_sm_state_new(OtrlSMState *smst)
 void otrl_sm_state_init(OtrlSMState *smst)
 {
     otrl_sm_state_free(smst);
+    memset(smst, 0, sizeof(OtrlSMState));
+
     smst->secret = gcry_mpi_snew(SM_MOD_LEN_BITS);
-    smst->x2 = NULL;
-    smst->x3 = NULL;
     smst->g1 = gcry_mpi_copy(SM_GENERATOR);
     smst->g2 = gcry_mpi_new(SM_MOD_LEN_BITS);
     smst->g3 = gcry_mpi_new(SM_MOD_LEN_BITS);
@@ -114,7 +104,6 @@ void otrl_sm_state_init(OtrlSMState *smst)
     smst->q = gcry_mpi_new(SM_MOD_LEN_BITS);
     smst->pab = gcry_mpi_new(SM_MOD_LEN_BITS);
     smst->qab = gcry_mpi_new(SM_MOD_LEN_BITS);
-    smst->received_question = 0;
     smst->sm_prog_state = OTRL_SMP_PROG_OK;
 }
 
