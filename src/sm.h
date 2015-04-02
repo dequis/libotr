@@ -41,6 +41,13 @@ typedef enum {
     OTRL_SMP_PROG_SUCCEEDED = 1      /* The SMP completed successfully */
 } OtrlSMProgState;
 
+typedef enum {
+    SM_MSG1_LEN = 6,
+    SM_MSG2_LEN = 11,
+    SM_MSG3_LEN = 8,
+    SM_MSG4_LEN = 3
+} OtrlSMMsgLen;
+
 typedef struct {
     gcry_mpi_t secret, x2, x3, g1, g2, g3, g3o, p, q, pab, qab;
     NextExpectedSMP nextExpected;

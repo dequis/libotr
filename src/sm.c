@@ -32,11 +32,6 @@
 #include "serial.h"
 
 
-static const int SM_MSG1_LEN = 6;
-static const int SM_MSG2_LEN = 11;
-static const int SM_MSG3_LEN = 8;
-static const int SM_MSG4_LEN = 3;
-
 /* The modulus p */
 static const char* SM_MODULUS_S = "0x"
     "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
