@@ -90,7 +90,7 @@ const char *otrl_version(void)
 static gcry_error_t reveal_macs(ConnContext *context,
 	DH_sesskeys *sess1, DH_sesskeys *sess2)
 {
-    unsigned int numnew = sess1->rcvmacused + sess1->sendmacused +
+    const unsigned int numnew = sess1->rcvmacused + sess1->sendmacused +
 	sess2->rcvmacused + sess2->sendmacused;
     unsigned int newnumsaved;
     unsigned char *newmacs;
