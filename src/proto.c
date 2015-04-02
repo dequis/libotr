@@ -438,6 +438,9 @@ gcry_error_t otrl_proto_instance(const char *otrmsg,
 
     /* Decode and extract instance tag */
     bufp = malloc(OTRL_B64_MAX_DECODED_SIZE(12));
+    if (!bufp) {
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
     bufp_head = bufp;
     lenp = otrl_base64_decode(bufp, otrtag+9, 12);
     read_int(*instance_from);
@@ -499,10 +502,13 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
 	    context->context_priv->our_dh_key.pub);
     buflen += pubkeylen + 4;
     buf = malloc(buflen);
+    if (buf == NULL) {
+        gcry_free(msgdup);
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
     msgbuf = gcry_malloc_secure(msglen);
-    if (buf == NULL || msgbuf == NULL) {
+    if (msgbuf == NULL) {
 	free(buf);
-	gcry_free(msgbuf);
 	gcry_free(msgdup);
 	return gcry_error(GPG_ERR_ENOMEM);
     }
