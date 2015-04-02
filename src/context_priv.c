@@ -20,7 +20,6 @@
 
 /* system headers */
 #include <stdlib.h>
-#include <assert.h>
 
 /* libgcrypt headers */
 #include <gcrypt.h>
