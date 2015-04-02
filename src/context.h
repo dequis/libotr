@@ -35,11 +35,11 @@ typedef struct context ConnContext;    /* Forward declare */
 #include "instag.h"
 
 typedef enum {
-    OTRL_MSGSTATE_PLAINTEXT,           /* Not yet started an encrypted
+    OTRL_MSGSTATE_PLAINTEXT = 0,           /* Not yet started an encrypted
 					  conversation */
-    OTRL_MSGSTATE_ENCRYPTED,           /* Currently in an encrypted
+    OTRL_MSGSTATE_ENCRYPTED = 1,           /* Currently in an encrypted
 					  conversation */
-    OTRL_MSGSTATE_FINISHED             /* The remote side has sent us a
+    OTRL_MSGSTATE_FINISHED = 2             /* The remote side has sent us a
 					  notification that he has ended
 					  his end of the encrypted
 					  conversation; prevent any
@@ -111,10 +111,10 @@ struct context {
     unsigned int protocol_version;     /* The version of OTR in use */
 
     enum {
-	OFFER_NOT,
-	OFFER_SENT,
-	OFFER_REJECTED,
-	OFFER_ACCEPTED
+	OFFER_NOT = 0,
+	OFFER_SENT = 1,
+	OFFER_REJECTED = 2,
+	OFFER_ACCEPTED = 3
     } otr_offer;          /* Has this correspondent repsponded to our
 			     OTR offers? */
 

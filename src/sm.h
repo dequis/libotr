@@ -27,11 +27,11 @@
 #define SM_DIGEST_SIZE 32
 
 typedef enum {
-    OTRL_SMP_EXPECT1,
-    OTRL_SMP_EXPECT2,
-    OTRL_SMP_EXPECT3,
-    OTRL_SMP_EXPECT4,
-    OTRL_SMP_EXPECT5
+    OTRL_SMP_EXPECT1 = 0,
+    OTRL_SMP_EXPECT2 = 1,
+    OTRL_SMP_EXPECT3 = 2,
+    OTRL_SMP_EXPECT4 = 3,
+    OTRL_SMP_EXPECT5 = 4
 } NextExpectedSMP;
 
 typedef enum {

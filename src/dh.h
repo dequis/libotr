@@ -30,8 +30,8 @@ typedef struct {
 
 /* Which half of the secure session id should be shown in bold? */
 typedef enum {
-    OTRL_SESSIONID_FIRST_HALF_BOLD,
-    OTRL_SESSIONID_SECOND_HALF_BOLD
+    OTRL_SESSIONID_FIRST_HALF_BOLD = 0,
+    OTRL_SESSIONID_SECOND_HALF_BOLD = 1
 } OtrlSessionIdHalf;
 
 #define OTRL_EXTRAKEY_BYTES 32
