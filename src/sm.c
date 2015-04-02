@@ -290,9 +290,19 @@ static gcry_error_t serialize_mpi_array(unsigned char **buffer, int *buflen,
 {
     size_t totalsize = 0, lenp, nextsize;
     unsigned int i, j;
-    size_t *list_sizes = malloc(count * sizeof(size_t));
-    unsigned char **tempbuffer = malloc(count * sizeof(unsigned char *));
+    size_t *list_sizes;
+    unsigned char **tempbuffer;
     unsigned char *bufp;
+
+    list_sizes = calloc(count, sizeof(size_t));
+    if (!list_sizes) {
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
+    tempbuffer = calloc(count, sizeof(unsigned char *));
+    if (!tempbuffer) {
+        free (list_sizes);
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
 
     for (i=0; i<count; i++) {
 	gcry_mpi_aprint(GCRYMPI_FMT_USG, &(tempbuffer[i]), &(list_sizes[i]),
@@ -301,7 +311,12 @@ static gcry_error_t serialize_mpi_array(unsigned char **buffer, int *buflen,
     }
 
     *buflen = (count+1)*4 + totalsize;
-    *buffer = malloc(*buflen * sizeof(char));
+    *buffer = calloc(*buflen, sizeof(char));
+    if (!(*buffer)) {
+        free (tempbuffer);
+        free (list_sizes);
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
 
     bufp = *buffer;
     lenp = totalsize;
@@ -342,7 +357,10 @@ static gcry_error_t unserialize_mpi_array(gcry_mpi_t **mpis,
     read_int(thecount);
     if (thecount != expcount) goto invval;
 
-    *mpis = malloc(thecount * sizeof(gcry_mpi_t));
+    *mpis = calloc(thecount, sizeof(gcry_mpi_t));
+    if (!(*mpis)) {
+        return gcry_error(GPG_ERR_ENOMEM);
+    }
 
     for (i=0; i<thecount; i++) {
 	(*mpis)[i] = NULL;
