@@ -28,6 +28,18 @@ typedef struct s_OtrlTLV {
     struct s_OtrlTLV *next;
 } OtrlTLV;
 
+#define get_type(X) (((X)[0] << 8) + (X)[1]);
+#define get_len(X)  (((X)[2] << 8) + (X)[3]);
+
+#define set_type_and_len(buf, type, len) { \
+	(buf)[0] = ((type) >> 8) & 0xff; \
+	(buf)[1] = (type) & 0xff; \
+	(buf)[2] = ((len) >> 8) & 0xff; \
+	(buf)[3] = (len) & 0xff; \
+} while(0);
+
+#define OTRL_TLV_HEADER_LEN 4
+
 /* TLV types */
 
 /* This is just padding for the encrypted message, and should be ignored. */

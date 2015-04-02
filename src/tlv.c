@@ -49,15 +49,20 @@ OtrlTLV *otrl_tlv_parse(const unsigned char *serialized, size_t seriallen)
 {
     OtrlTLV *tlv = NULL;
     OtrlTLV **tlvp = &tlv;
-    while (seriallen >= 4) {
-	unsigned short type = (serialized[0] << 8) + serialized[1];
-	unsigned short len = (serialized[2] << 8) + serialized[3];
-	serialized += 4; seriallen -=4;
-	if (seriallen < len) break;
-	*tlvp = otrl_tlv_new(type, len, serialized);
-	serialized += len;
-	seriallen -= len;
-	tlvp = &((*tlvp)->next);
+    while (seriallen >= OTRL_TLV_HEADER_LEN) {
+        const unsigned short type = get_type(serialized)
+        const unsigned short len = get_len(serialized)
+        serialized += OTRL_TLV_HEADER_LEN;
+        seriallen -= OTRL_TLV_HEADER_LEN;
+
+        if (seriallen < len)
+            break;
+
+        *tlvp = otrl_tlv_new(type, len, serialized);
+        serialized += len;
+        seriallen -= len;
+
+        tlvp = &((*tlvp)->next);
     }
     return tlv;
 }
@@ -78,7 +83,7 @@ size_t otrl_tlv_seriallen(const OtrlTLV *tlv)
 {
     size_t totlen = 0;
     while (tlv) {
-	totlen += tlv->len + 4;
+	totlen += tlv->len + OTRL_TLV_HEADER_LEN;
 	tlv = tlv->next;
     }
     return totlen;
@@ -89,11 +94,8 @@ size_t otrl_tlv_seriallen(const OtrlTLV *tlv)
 void otrl_tlv_serialize(unsigned char *buf, const OtrlTLV *tlv)
 {
     while (tlv) {
-	buf[0] = (tlv->type >> 8) & 0xff;
-	buf[1] = tlv->type & 0xff;
-	buf[2] = (tlv->len >> 8) & 0xff;
-	buf[3] = tlv->len & 0xff;
-	buf += 4;
+	set_type_and_len(buf, tlv->type, tlv->len);
+	buf += OTRL_TLV_HEADER_LEN;
 	memmove(buf, tlv->data, tlv->len);
 	buf += tlv->len;
 	tlv = tlv->next;
