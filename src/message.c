@@ -1366,6 +1366,10 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		     * don't try sending anything else to him. */
 		    if (otrl_tlv_find(tlvs, OTRL_TLV_DISCONNECTED)) {
 			otrl_context_force_finished(context);
+
+			if (ops->gone_insecure) {
+			    ops->gone_insecure(opdata, context);
+			}
 		    }
 
 		    /* If the other side told us to use the current
@@ -1880,6 +1884,9 @@ static void disconnect_context(OtrlUserState us, const OtrlMessageAppOps *ops,
     otrl_context_force_plaintext(context);
     if (ops->update_context_list) {
 	ops->update_context_list(opdata);
+    }
+    if (ops->gone_insecure) {
+	ops->gone_insecure(opdata, context);
     }
 }
 
